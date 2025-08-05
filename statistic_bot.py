@@ -1,3 +1,4 @@
+from config import BOT_TOKEN
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -9,7 +10,7 @@ import re
 
 file_path = Path(__file__).parent / 'json' / 'result.json'
 
-BOT_TOKEN = 'token'
+"BOT_TOKEN=your_token_here"
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -61,7 +62,7 @@ def vivod_device(sms):
 async def process_start_command1(message: Message):
     await message.answer(f'Я создан, чтобы собирать данные и их анализировать. 😄\n'
                          'Вы можете узнать список всех команд на /help ❔\n' 
-                         'Или вы можете написать номер конкретной проблемы или устройства 💱')
+                         'Или вы можете написать номер конкретной проблемы или устройства 🫰')
 
 @dp.message(Command(commands="help"))
 async def process_start_command1(message: Message):
