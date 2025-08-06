@@ -26,7 +26,7 @@ def analiz():
         data = json.load(f)
     
     for i in data['messages']:
-        if i['type'] == 'message':
+        if i['type'] == 'message' and i['from_id'] in ["user6031905550"]:
             sms = [j.split() for j in i['text'].split("\n")]
             if (sms[0][0][0] == "❗"):
                 
@@ -144,6 +144,11 @@ async def number_problem(message: Message):
         await message.answer(send_device(message.text))
     else:
         await message.answer(f'Такого устройства не найдено')    
+
+@dp.message()
+async def send_echo(message: Message):
+    await message.answer("Простите, но я не понимаю запроса \nВоспользуйтесь /help для того чтобы узнать команды \nИли введите номер проблемы или устройства")
+
 
 if __name__ == '__main__':
     analiz()
