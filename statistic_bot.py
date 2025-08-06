@@ -5,6 +5,7 @@ from aiogram.filters import Command, Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 import asyncio
+from aiogram import F
 from aiogram.types import CallbackQuery
 from pathlib import Path
 import json
@@ -22,6 +23,21 @@ dp = Dispatcher()
 
 devices = dict()
 problems = dict()
+
+users = dict()
+
+def new_user(id):
+    global users
+    if id not in users:
+        users[id] = \
+            {
+                'page': 1,
+                'maxpage': 1,
+                'bookmarks': set(),
+                'spisok': []
+            }
+
+today = str(d.today()).replace("-", ".")
 
 
 def analiz():
@@ -70,7 +86,6 @@ def send_problem(number):
 
 def send_device(name):
     device = devices[name]
-    today = str(d.today()).replace("-", ".")
     otvet = f'Название устройства: {name}\n' \
             f'Статус: {"Проблем нет" if device["check"] else "Имеются проблемы"}\n' \
             f'Дата последней проблемы: {device["date_last_break"]}\n' \
@@ -136,14 +151,16 @@ def generator_inline_buttons(width, *args, last_btn="", **kwargs):
     
 
 @dp.message(Command(commands="start"))
-async def process_start_command1(message: Message):
+async def start(message: Message):
+    new_user(message.from_user.id)
     await message.answer(f'Я создан, чтобы собирать данные и их анализировать. 😄\n'
                          'Вы можете узнать список всех команд на /help ❔\n' 
                          'Или вы можете написать номер конкретной проблемы или устройства 🫰')
 
 
 @dp.message(Command(commands="help"))
-async def process_start_command1(message: Message):
+async def help(message: Message):
+    new_user(message.from_user.id)
     await message.answer(f'Вот все команды: 😮\n'
                         '/start - начальное сообщение 😁\n'
                         '/help - список всех команд ❓\n'
@@ -155,7 +172,7 @@ async def process_start_command1(message: Message):
 
 @dp.message(Command(commands="stats"))
 async def stats(message: Message):
-    today = str(d.today()).replace("-", ".")
+    new_user(message.from_user.id)
     sms = f'Всего проблем - {len(problems)} \n' \
           f'Проблем за год - {len([i for i in problems if compare_date(problems[i]["date"], today)[2] == 0])} \n' \
           f'Проблем за месяц - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} \n' \
@@ -165,14 +182,17 @@ async def stats(message: Message):
 
 @dp.message(Command(commands="all_device"))
 async def all_device(message: Message):
+    new_user(message.from_user.id)
     await message.answer(f'kek')
 
 @dp.message(Command(commands="rec_device"))
 async def rec_device(message: Message):
+    new_user(message.from_user.id)
     await message.answer(f'kek')
 
 @dp.message(Command(commands="check"))
 async def check(message: Message):
+    new_user(message.from_user.id)
     await message.answer(f'kek')        
 
 @dp.message(lambda msg: msg.text and msg.text.isdigit())
@@ -190,35 +210,136 @@ async def number_problem(message: Message):
         await message.answer(f'Такого устройства не найдено')    
 
 
-# @dp.callback_query(Text(text=['day_problem']))
-# async def process_button_day_problem(callback: CallbackQuery):
-#     if users[callback.from_user.id]['page'] < maxpage - 1:
-#         users[callback.from_user.id]['page'] += 1
-#         await callback.message.edit_text(text=book[users[callback.from_user.id]['page']],
-#                                          reply_markup=generator(3, backward='<<',
-#                                                                 new_bookmarks=f'{users[callback.from_user.id]["page"]}/{maxpage}',
-#                                                                 forward='>>'))
-#     elif users[callback.from_user.id]['page'] == maxpage:
-#         pass
+@dp.callback_query(Text(text=['problems_day']))
+async def process_button_day_problem(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    day_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if sum(compare_date(problems[i]["date"], today)) == 0]
+    
+    if (len(day_problems) == 0):
+        await callback.message.edit_text(f"Проблем за этот период нет")
+        return
+    
+    users[callback.from_user.id]['page'] = 0
+    users[callback.from_user.id]['maxpage'] = len(day_problems) // 20 + bool(len(day_problems) % 20) - 1
+    users[callback.from_user.id]['spisok'] = day_problems
+    
+    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
+                                                forward='>>'))
+    
+@dp.callback_query(Text(text=['problems_mounth']))
+async def process_button_mounth_problem(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    mounth_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0]
+    
+    if (len(mounth_problems) == 0):
+        await callback.message.edit_text(f"Проблем за этот период нет")
+        return
+    
+    users[callback.from_user.id]['page'] = 0
+    users[callback.from_user.id]['maxpage'] = len(mounth_problems) // 20 + bool(len(mounth_problems) % 20) - 1
+    users[callback.from_user.id]['spisok'] = mounth_problems
+    
+    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
+                                                forward='>>'))
 
-#     else:
-#         users[callback.from_user.id]['page'] += 1
-#         await callback.message.edit_text(text=book[users[callback.from_user.id]['page']],
-#                                          reply_markup=generator(2, backward='<<',
-#                                                                 new_bookmarks=f'{users[callback.from_user.id]["page"]}/{maxpage}'))
-#     await callback.answer()
+@dp.callback_query(Text(text=['problems_year']))
+async def process_button_year_problem(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    year_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if compare_date(problems[i]["date"], today)[2] == 0]
+    
+    users[callback.from_user.id]['page'] = 0
+    users[callback.from_user.id]['maxpage'] = len(year_problems) // 20 + bool(len(year_problems) % 20) - 1
+    users[callback.from_user.id]['spisok'] = year_problems
+    
+    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
+                                                forward='>>'))
+
+@dp.callback_query(Text(text=['problems_all']))
+async def process_button_year_problem(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    all_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems]
+    
+    users[callback.from_user.id]['page'] = 0
+    users[callback.from_user.id]['maxpage'] = len(all_problems) // 20 + bool(len(all_problems) % 20) - 1
+    users[callback.from_user.id]['spisok'] = all_problems
+    
+    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
+                                                forward='>>'))
+    
+    
+@dp.callback_query(Text(text=['forward']))
+async def process_button_forward_press(callback: CallbackQuery):
+    if users[callback.from_user.id]['page'] < users[callback.from_user.id]['maxpage'] - 1:
+        users[callback.from_user.id]['page'] += 1
+        await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+                                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
+                                                                backward='<<',
+                                                                forward='>>'))
+    elif users[callback.from_user.id]['page'] == users[callback.from_user.id]['maxpage']:
+        pass
+
+    else:
+        users[callback.from_user.id]['page'] += 1
+        await callback.message.edit_text(text=f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+                                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
+                                                                backward='<<')
+                                        )
+    await callback.answer()
+
+@dp.callback_query(Text(text=['backward']))
+async def process_button_backward_press(callback: CallbackQuery):
+    if users[callback.from_user.id]['page'] > 1:
+        users[callback.from_user.id]['page'] -= 1
+        await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+                                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
+                                                                backward='<<',
+                                                                forward='>>'))
+    elif users[callback.from_user.id]['page'] == 0:
+        pass
+
+    else:
+        users[callback.from_user.id]['page'] -= 1
+        await callback.message.edit_text(text=f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+                                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page']* 20:users[callback.from_user.id]['page'] * 20 + 20],
+                                                                forward='>>'))
+    await callback.answer()
 
 
+@dp.callback_query(lambda callback: callback.data[:-1].isdigit())
+async def process_button_day_problem(callback: CallbackQuery):
+    if str(callback.data[:-1]) in problems:
+        await callback.message.edit_text(send_problem(str(callback.data[:-1])))
+    else:
+        await callback.message.edit_text(f'Проблемы с таким номером не найдено')
 
-
+@dp.callback_query()
+async def process_button_day_problem(callback: CallbackQuery):
+    print("--- Данные о нажатии ---")
+    print(f"User ID: {callback.from_user.id}")
+    print(f"Username: @{callback.from_user.username}")
+    print(f"Нажата кнопка с callback_data: {callback.data}")
+    print(f"Сообщение с кнопкой: message_id={callback.message.message_id}")
+    print(f"Чат: chat_id={callback.message.chat.id}")
+    
+    # Обязательно подтверждаем нажатие (иначе Telegram покажет "часики")
+    await callback.answer()
 
 
 @dp.message()
-async def send_echo(message: Message):
-    await message.answer("Простите, но я не понимаю запроса \nВоспользуйтесь /help для того чтобы узнать команды \nИли введите номер проблемы или устройства")
+async def any_msg(message: Message):
+    user_id = message.from_user.id
+    if user_id not in users:
+        await start(message) 
+    else:
+        await message.answer("Простите, но я не понимаю запроса \nВоспользуйтесь /help для того чтобы узнать команды \nИли введите номер проблемы или устройства")
 
 
 if __name__ == '__main__':
     analiz()
     dp.startup.register(set_main_menu)
-    dp.run_polling(bot)
+    dp.run_polling(bot, allowed_updates=[])
+    
