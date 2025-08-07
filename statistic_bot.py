@@ -338,8 +338,8 @@ async def process_button_backward_press(callback: CallbackQuery):
 
 @dp.callback_query(lambda callback: callback.data[:-1].isdigit())
 async def process_button_day_problem(callback: CallbackQuery):
-    if str(callback.data[:-1]) in problems:
-        await callback.message.edit_text(send_problem(str(callback.data[:-1])))
+    if callback.data[:-1] in problems:
+        await callback.message.edit_text(send_problem(callback.data[:-1]))
     else:
         await callback.message.edit_text(f'Проблемы с таким номером не найдено')
 
@@ -361,6 +361,14 @@ async def process_button_day_problem(callback: CallbackQuery):
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                          reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
+
+
+@dp.callback_query(lambda callback: callback.data and "_" in callback.data)
+async def process_button_day_problem(callback: CallbackQuery):
+    if callback.data[1:] in devices:
+        await callback.message.edit_text(send_device(callback.data[1:]))
+    else:
+        await callback.message.edit_text(f'Устройства с таким назанием не найдено')
 
 
 @dp.callback_query()
