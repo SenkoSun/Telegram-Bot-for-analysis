@@ -133,7 +133,7 @@ async def set_main_menu(bot: Bot):
     await bot.set_my_commands(main_menu_commands)
 
 
-def generator_inline_buttons(width, *args, last_btn="", **kwargs):
+def generator_inline_buttons(width, *args, last_btn1="", last_btn2="", **kwargs):
     buttons = []
     kb_builder = InlineKeyboardBuilder()
     for i in args:
@@ -142,10 +142,13 @@ def generator_inline_buttons(width, *args, last_btn="", **kwargs):
         buttons.append(InlineKeyboardButton(text=str(text), callback_data=call))
 
     kb_builder.row(*buttons, width=width)
-    if last_btn:
-        kb_builder.row(InlineKeyboardButton(
-            text=last_btn,
-            callback_data=last_btn))
+    buttons = []
+    if last_btn1:
+        buttons.append(InlineKeyboardButton(text=last_btn1.split(" - ")[1], callback_data=last_btn1.split(" - ")[0]))
+    if last_btn2:
+        buttons.append(InlineKeyboardButton(text=last_btn2.split(" - ")[1], callback_data=last_btn2.split(" - ")[0]))
+    if last_btn1 or last_btn2:    
+        kb_builder.row(*buttons)
 
     return kb_builder.as_markup()
     
@@ -223,9 +226,9 @@ async def process_button_day_problem(callback: CallbackQuery):
     users[callback.from_user.id]['maxpage'] = len(day_problems) // 20 + bool(len(day_problems) % 20) - 1
     users[callback.from_user.id]['spisok'] = day_problems
     
-    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
-                                                forward='>>'))
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > 20 else '')))
     
 @dp.callback_query(Text(text=['problems_mounth']))
 async def process_button_mounth_problem(callback: CallbackQuery):
@@ -240,42 +243,50 @@ async def process_button_mounth_problem(callback: CallbackQuery):
     users[callback.from_user.id]['maxpage'] = len(mounth_problems) // 20 + bool(len(mounth_problems) % 20) - 1
     users[callback.from_user.id]['spisok'] = mounth_problems
     
-    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
-                                                forward='>>'))
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > 20 else '')))
 
 @dp.callback_query(Text(text=['problems_year']))
 async def process_button_year_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     year_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if compare_date(problems[i]["date"], today)[2] == 0]
     
+    if (len(year_problems) == 0):
+        await callback.message.edit_text(f"Проблем за этот период нет")
+        return
+    
     users[callback.from_user.id]['page'] = 0
     users[callback.from_user.id]['maxpage'] = len(year_problems) // 20 + bool(len(year_problems) % 20) - 1
     users[callback.from_user.id]['spisok'] = year_problems
     
-    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
-                                                forward='>>'))
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > 20 else '')))
 
 @dp.callback_query(Text(text=['problems_all']))
 async def process_button_year_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     all_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems]
     
+    if (len(all_problems) == 0):
+        await callback.message.edit_text(f"Проблем за этот период нет")
+        return
+    
     users[callback.from_user.id]['page'] = 0
     users[callback.from_user.id]['maxpage'] = len(all_problems) // 20 + bool(len(all_problems) % 20) - 1
     users[callback.from_user.id]['spisok'] = all_problems
     
-    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+    await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
-                                                forward='>>'))
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > 20 else '')))
     
     
 @dp.callback_query(Text(text=['forward']))
 async def process_button_forward_press(callback: CallbackQuery):
     if users[callback.from_user.id]['page'] < users[callback.from_user.id]['maxpage'] - 1:
         users[callback.from_user.id]['page'] += 1
-        await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+        await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
                                                                 backward='<<',
                                                                 forward='>>'))
@@ -284,9 +295,9 @@ async def process_button_forward_press(callback: CallbackQuery):
 
     else:
         users[callback.from_user.id]['page'] += 1
-        await callback.message.edit_text(text=f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+        await callback.message.edit_text(text=f"Проблемы страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
-                                                                backward='<<')
+                                                                last_btn1='backward - <<')
                                         )
     await callback.answer()
 
@@ -294,7 +305,7 @@ async def process_button_forward_press(callback: CallbackQuery):
 async def process_button_backward_press(callback: CallbackQuery):
     if users[callback.from_user.id]['page'] > 1:
         users[callback.from_user.id]['page'] -= 1
-        await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+        await callback.message.edit_text(f"Проблемы страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
                                                                 backward='<<',
                                                                 forward='>>'))
@@ -303,7 +314,7 @@ async def process_button_backward_press(callback: CallbackQuery):
 
     else:
         users[callback.from_user.id]['page'] -= 1
-        await callback.message.edit_text(text=f"Проблемы страница: {users[callback.from_user.id]['page']}/{users[callback.from_user.id]['maxpage']}",
+        await callback.message.edit_text(text=f"Проблемы страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page']* 20:users[callback.from_user.id]['page'] * 20 + 20],
                                                                 forward='>>'))
     await callback.answer()
