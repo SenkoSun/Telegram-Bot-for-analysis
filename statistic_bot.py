@@ -41,7 +41,7 @@ def new_user(id):
 today = str(d.today()).replace("-", ".")
 
 PAGE_PROBLEM = 20
-PAGE_DEVICE = 10
+PAGE_DEVICE = 20
 
 
 def analiz():
@@ -296,10 +296,11 @@ async def process_button_year_problem(callback: CallbackQuery):
 @dp.callback_query(Text(text=['forward']))
 async def process_button_forward_press(callback: CallbackQuery):
     elements_in_page = (PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else PAGE_DEVICE)
+    width = 5 if users[callback.from_user.id]['type_spisok'] == "problem" else 2
     if users[callback.from_user.id]['page'] < users[callback.from_user.id]['maxpage'] - 1:
         users[callback.from_user.id]['page'] += 1
         await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * elements_in_page:users[callback.from_user.id]['page'] * elements_in_page + elements_in_page],
+                                         reply_markup=generator_inline_buttons(width, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * elements_in_page:users[callback.from_user.id]['page'] * elements_in_page + elements_in_page],
                                                                 backward='<<',
                                                                 forward='>>'))
     elif users[callback.from_user.id]['page'] == users[callback.from_user.id]['maxpage']:
@@ -308,7 +309,7 @@ async def process_button_forward_press(callback: CallbackQuery):
     else:
         users[callback.from_user.id]['page'] += 1
         await callback.message.edit_text(text=f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * elements_in_page:users[callback.from_user.id]['page'] * elements_in_page + elements_in_page],
+                                         reply_markup=generator_inline_buttons(width, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * elements_in_page:users[callback.from_user.id]['page'] * elements_in_page + elements_in_page],
                                                                 last_btn1='backward - <<')
                                         )
     await callback.answer()
@@ -317,10 +318,11 @@ async def process_button_forward_press(callback: CallbackQuery):
 @dp.callback_query(Text(text=['backward']))
 async def process_button_backward_press(callback: CallbackQuery):
     elements_in_page = (PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else PAGE_DEVICE)
+    width = 5 if users[callback.from_user.id]['type_spisok'] == "problem" else 2
     if users[callback.from_user.id]['page'] > 1:
         users[callback.from_user.id]['page'] -= 1
         await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * elements_in_page:users[callback.from_user.id]['page'] * elements_in_page + elements_in_page],
+                                         reply_markup=generator_inline_buttons(width, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * elements_in_page:users[callback.from_user.id]['page'] * elements_in_page + elements_in_page],
                                                                 backward='<<',
                                                                 forward='>>'))
     elif users[callback.from_user.id]['page'] == 0:
@@ -329,7 +331,7 @@ async def process_button_backward_press(callback: CallbackQuery):
     else:
         users[callback.from_user.id]['page'] -= 1
         await callback.message.edit_text(text=f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page']* elements_in_page:users[callback.from_user.id]['page'] * elements_in_page + elements_in_page],
+                                         reply_markup=generator_inline_buttons(width, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page']* elements_in_page:users[callback.from_user.id]['page'] * elements_in_page + elements_in_page],
                                                                 forward='>>'))
     await callback.answer()
 
@@ -345,7 +347,7 @@ async def process_button_day_problem(callback: CallbackQuery):
 @dp.callback_query(Text(text=['devices_all']))
 async def process_button_day_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
-    devices_all = list(devices.keys())
+    devices_all = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i  in devices]
     
     if (len(devices_all) == 0):
         await callback.message.edit_text(f"Устройств не найдено")
@@ -353,12 +355,12 @@ async def process_button_day_problem(callback: CallbackQuery):
     
     users[callback.from_user.id]['page'] = 0
     users[callback.from_user.id]['type_spisok'] = "device"
-    users[callback.from_user.id]['maxpage'] = len(devices_all) // 20 + bool(len(devices_all) % 20) - 1
+    users[callback.from_user.id]['maxpage'] = len(devices_all) // PAGE_DEVICE + bool(len(devices_all) % PAGE_DEVICE) - 1
     users[callback.from_user.id]['spisok'] = devices_all
     
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * 20:users[callback.from_user.id]['page'] * 20 + 20],
-                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > 20 else '')))
+                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
 
 
 @dp.callback_query()
