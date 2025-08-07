@@ -198,7 +198,10 @@ async def all_device(message: Message):
 @dp.message(Command(commands="rec_device"))
 async def rec_device(message: Message):
     new_user(message.from_user.id)
-    await message.answer(f'kek')
+    
+    sms = f'Всего зарегистрированных устройств - {len(devices)} \n' \
+          f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} \n'
+    await message.answer(sms, reply_markup=generator_inline_buttons(1, devices_rec = "Список устройств"))
 
 @dp.message(Command(commands="check"))
 async def check(message: Message):
@@ -362,8 +365,25 @@ async def process_button_day_problem(callback: CallbackQuery):
                          reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
 
+@dp.callback_query(Text(text=['devices_rec']))
+async def process_button_day_problem(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7]
+    
+    if (len(devices_rec) == 0):
+        await callback.message.edit_text(f"Устройств не найдено")
+        return
+    
+    users[callback.from_user.id]['page'] = 0
+    users[callback.from_user.id]['type_spisok'] = "device"
+    users[callback.from_user.id]['maxpage'] = len(devices_rec) // PAGE_DEVICE + bool(len(devices_rec) % PAGE_DEVICE) - 1
+    users[callback.from_user.id]['spisok'] = devices_rec
+    
+    await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
+                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
 
-@dp.callback_query(lambda callback: callback.data and "_" in callback.data)
+@dp.callback_query(lambda callback: callback.data and "_" in callback.data and callback.data[0] in ["✅", "❗"])
 async def process_button_day_problem(callback: CallbackQuery):
     if callback.data[1:] in devices:
         await callback.message.edit_text(send_device(callback.data[1:]))
