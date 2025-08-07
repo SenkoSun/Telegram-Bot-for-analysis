@@ -55,8 +55,9 @@ def analiz():
                 
                 problems.setdefault(sms[0][1], dict())
                 problems[sms[0][1]]["check"] = False
+                problems[sms[0][1]]["device"] = sms[1][1]
                 problems[sms[0][1]]["date"] = sms[3][2]
-                problems[sms[0][1]]["place"] = sms[1][1][:sms[1][1].find("_")]
+                problems[sms[0][1]]["place"] = (sms[1][1].split("_")[0] if sms[1][1].split("_")[0] not in ["local", "inet"] else sms[1][1].split("_")[1])
                 
                 devices.setdefault(sms[1][1], dict())
                 devices[sms[1][1]]["check"] = False
@@ -71,7 +72,7 @@ def analiz():
                 problems[sms[0][1]]["check"] = True
                 problems[sms[0][1]]["device"] = sms[1][1]
                 problems[sms[0][1]]["date"] = sms[2][2]
-                problems[sms[0][1]]["place"] = sms[1][1][:sms[1][1].find("_")]
+                problems[sms[0][1]]["place"] = (sms[1][1].split("_")[0] if sms[1][1].split("_")[0] not in ["local", "inet"] else sms[1][1].split("_")[1])
                 
                 devices.setdefault(sms[1][1], dict())
                 devices[sms[1][1]]["check"] = True
@@ -206,7 +207,10 @@ async def rec_device(message: Message):
 @dp.message(Command(commands="check"))
 async def check(message: Message):
     new_user(message.from_user.id)
-    await message.answer(f'kek')        
+    sms = f'Проблем за месяц - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} \n' \
+          f'Рекоммендованных проблем к рассмотрению - {len([i for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} \n'     
+        
+    await message.answer(sms, reply_markup=generator_inline_buttons(1, problems_rec = "Список проблем"))
 
 @dp.message(lambda msg: msg.text and msg.text.isdigit())
 async def number_problem(message: Message):
@@ -383,6 +387,26 @@ async def process_button_day_problem(callback: CallbackQuery):
                          reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
 
+@dp.callback_query(Text(text=['problems_rec']))
+async def process_button_day_problem(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    problems_rec = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7]
+    for i in problems_rec:
+        print(problems[i[:-1]])
+    
+    if (len(problems_rec) == 0):
+        await callback.message.edit_text(f"Рекомендованных проблем не найдено")
+        return
+    
+    users[callback.from_user.id]['page'] = 0
+    users[callback.from_user.id]['type_spisok'] = "problem"
+    users[callback.from_user.id]['maxpage'] = len(problems_rec) // PAGE_PROBLEM + bool(len(problems_rec) % PAGE_PROBLEM) - 1
+    users[callback.from_user.id]['spisok'] = problems_rec
+    
+    await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
+                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
+
 @dp.callback_query(lambda callback: callback.data and "_" in callback.data and callback.data[0] in ["✅", "❗"])
 async def process_button_day_problem(callback: CallbackQuery):
     if callback.data[1:] in devices:
@@ -417,4 +441,3 @@ if __name__ == '__main__':
     analiz()
     dp.startup.register(set_main_menu)
     dp.run_polling(bot, allowed_updates=[])
-    
