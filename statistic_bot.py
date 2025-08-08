@@ -67,36 +67,32 @@ def analiz():
                 
             elif (sms[0][0][0] == "✅"):    
                 
-                problems.setdefault(sms[0][1], dict())
-                problems[sms[0][1]]["check"] = True
-                problems[sms[0][1]]["device"] = sms[1][1]
-                problems[sms[0][1]]["date"] = sms[2][2]
-                problems[sms[0][1]]["place"] = (sms[1][1].split("_")[0] if sms[1][1].split("_")[0] not in ["local", "inet"] else sms[1][1].split("_")[1])
+                if sms[0][1] in problems:
+                    problems[sms[0][1]]["check"] = True
                 
-                devices.setdefault(sms[1][1], dict())
-                devices[sms[1][1]]["check"] = True
-                if sms[0][1] not in devices[sms[1][1]].setdefault("problems", []): 
-                    devices[sms[1][1]]["problems"].append(sms[0][1])    
+                if (sms[1][1] in devices):
+                    devices[sms[1][1]]["check"] = True
+                
     
 def send_problem(number):
     problema = problems[number]
-    otvet = f'Проблема номер🔢 - {number}\n' \
-            f'Статус - {"Решена✅" if problema["check"] else "Не решена❌"}\n' \
-            f'Проблема с устройством🧾 - {problema["device"]}\n' \
-            f'Дата📅 - {problema["date"]}\n' \
+    otvet = f'Проблема номер - {number} 🎰\n' \
+            f'Статус - {"Решена ✅" if problema["check"] else "Не решена ❌"}\n' \
+            f'Проблема с устройством - {problema["device"]} 🧾\n' \
+            f'Дата - {problema["date"]} 📅\n' \
 
     return otvet
 
 
 def send_device(name):
     device = devices[name]
-    otvet = f'Название устройства🆎 - {name}\n' \
-            f'Статус - {"Проблем нет✅" if device["check"] else "Имеются проблемы❌"}\n' \
-            f'Дата последней проблемы📆 - {device["date_last_break"]}\n' \
-            f'Статистика проблем с устройством за все время🕛 - {len(device["problems"])}\n' \
-            f'Статистика проблем с устройством за год🕰️ - {len([i for i in device["problems"] if compare_date(problems[i]["date"], today)[2] == 0])}\n'\
-            f'Статистика проблем с устройством за месяц⏲️ - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)[1:]) == 0])}\n'\
-            f'Статистика проблем с устройством за день⏱️ - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)) == 0])}'
+    otvet = f'Название устройства - {name} 🆎\n' \
+            f'Статус - {"Проблем нет ✅" if device["check"] else "Имеются проблемы ❌"}\n' \
+            f'Дата последней проблемы - {device["date_last_break"]} 📆\n' \
+            f'Статистика проблем с устройством за все время - {len(device["problems"])} 🕛\n' \
+            f'Статистика проблем с устройством за год - {len([i for i in device["problems"] if compare_date(problems[i]["date"], today)[2] == 0])} 🕰️\n'\
+            f'Статистика проблем с устройством за месяц - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ⏲️\n'\
+            f'Статистика проблем с устройством за день - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)) == 0])} ⏱️'
     return otvet
 
 
@@ -124,14 +120,14 @@ async def set_main_menu(bot: Bot):
                    description='начальное сообщение 😁'),
         BotCommand(command='/help',
                    description='список всех команд ❓'),
-        # BotCommand(command='/stats',
-        #            description='общая статистика проблем за день/месяц/год/🧐'),
-        # BotCommand(command='/all_device',
-        #            description='устройства зарегестрированные за все время🤝'),
-        # BotCommand(command='/rec_device',
-        #            description='устройства рекомендованные к рассмотрению😟'),
-        # BotCommand(command='/check',
-        #            description='новые проблемы, которые надо решить🥺'),
+        BotCommand(command='/stats',
+                   description='общая статистика проблем за день/месяц/год/ 🧐'),
+        BotCommand(command='/all_device',
+                   description='устройства зарегестрированные за все время 🤝'),
+        BotCommand(command='/rec_device',
+                   description='устройства рекомендованные к рассмотрению 😟'),
+        BotCommand(command='/check',
+                   description='новые проблемы, которые надо решить 🥺'),
     ]
 
     await bot.set_my_commands(main_menu_commands)
@@ -180,50 +176,50 @@ async def help(message: Message):
 @dp.message(Command(commands="stats"))
 async def stats(message: Message):
     new_user(message.from_user.id)
-    sms = f'Всего проблем - {len(problems)}🕛 \n' \
-          f'Проблем за год - {len([i for i in problems if compare_date(problems[i]["date"], today)[2] == 0])}🕰️ \n' \
-          f'Проблем за месяц - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0])}⏲️ \n' \
-          f'Проблем за день - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)) == 0])}⏱️ \n'     
+    sms = f'Всего проблем - {len(problems)} 🕛 \n' \
+          f'Проблем за год - {len([i for i in problems if compare_date(problems[i]["date"], today)[2] == 0])} 🕰️ \n' \
+          f'Проблем за месяц - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ⏲️ \n' \
+          f'Проблем за день - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)) == 0])} ⏱️ \n'     
         
-    await message.answer(sms, reply_markup=generator_inline_buttons(3, problems_day = "день⏱️", problems_mounth = "месяц⏲️", problems_year = "год🕰️", problems_all='все время🕛'))
+    await message.answer(sms, reply_markup=generator_inline_buttons(3, problems_day = "день ⏱️", problems_mounth = "месяц ⏲️", problems_year = "год 🕰️", problems_all='все время 🕛'))
 
 @dp.message(Command(commands="all_device"))
 async def all_device(message: Message):
     new_user(message.from_user.id)
-    sms = f'Всего зарегистрированных устройств - {len(devices)}🌍 \n' \
-          f'Устройств в работе - {len([i for i in devices if devices[i]["check"]])}🌇 \n' \
-          f'Устройств в оффлайне - {len([i for i in devices if not devices[i]["check"]])}🌃 \n'
-    await message.answer(sms, reply_markup=generator_inline_buttons(1, devices_all = "Список устройств🗒️"))
+    sms = f'Всего зарегистрированных устройств - {len(devices)} 🌍 \n' \
+          f'Устройств в работе - {len([i for i in devices if devices[i]["check"]])} 🌇 \n' \
+          f'Устройств в оффлайне - {len([i for i in devices if not devices[i]["check"]])} 🌃 \n'
+    await message.answer(sms, reply_markup=generator_inline_buttons(1, devices_all = "Список устройств 🗒️"))
 
 @dp.message(Command(commands="rec_device"))
 async def rec_device(message: Message):
     new_user(message.from_user.id)
     
-    sms = f'Всего зарегистрированных устройств - {len(devices)}✅ \n' \
-          f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7])}⁉️ \n'
-    await message.answer(sms, reply_markup=generator_inline_buttons(1, devices_rec = "Список устройств🗒️"))
+    sms = f'Всего зарегистрированных устройств - {len(devices)} ✅ \n' \
+          f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n'
+    await message.answer(sms, reply_markup=generator_inline_buttons(1, devices_rec = "Список устройств 🗒️"))
 
 @dp.message(Command(commands="check"))
 async def check(message: Message):
     new_user(message.from_user.id)
-    sms = f'Проблем за месяц - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0])}☑️ \n' \
-          f'Рекоммендованных проблем к рассмотрению - {len([i for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7])}⁉️ \n'     
+    sms = f'Проблем за месяц - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ✅ \n' \
+          f'Рекоммендованных проблем к рассмотрению - {len([i for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ⁉️\n'     
         
-    await message.answer(sms, reply_markup=generator_inline_buttons(1, problems_rec = "Список проблем🗒️"))
+    await message.answer(sms, reply_markup=generator_inline_buttons(1, problems_rec = "Список проблем 🗒️"))
 
 @dp.message(lambda msg: msg.text and msg.text.isdigit())
 async def number_problem(message: Message):
     if message.text in problems.keys():
         await message.answer(send_problem(message.text))
     else:
-        await message.answer(f'Проблемы с таким номером не найдено🚫')    
+        await message.answer(f'Проблемы с таким номером не найдено 🚫')    
 
 @dp.message(lambda msg: msg.text and "_" in msg.text)
 async def number_problem(message: Message):
     if message.text in devices.keys():
         await message.answer(send_device(message.text))
     else:
-        await message.answer(f'Такого устройства не найдено🚫')    
+        await message.answer(f'Такого устройства не найдено 🚫')    
 
 
 @dp.callback_query(Text(text=['problems_day']))
@@ -232,7 +228,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     day_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if sum(compare_date(problems[i]["date"], today)) == 0]
     
     if (len(day_problems) == 0):
-        await callback.message.edit_text(f"Проблем за этот период нет🚫")
+        await callback.message.edit_text(f"Проблем за этот период нет 🚫")
         return
     
     users[callback.from_user.id]['page'] = 0
@@ -250,7 +246,7 @@ async def process_button_mounth_problem(callback: CallbackQuery):
     mounth_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0]
     
     if (len(mounth_problems) == 0):
-        await callback.message.edit_text(f"Проблем за этот период нет🚫")
+        await callback.message.edit_text(f"Проблем за этот период нет 🚫")
         return
     
     users[callback.from_user.id]['page'] = 0
@@ -268,7 +264,7 @@ async def process_button_year_problem(callback: CallbackQuery):
     year_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if compare_date(problems[i]["date"], today)[2] == 0]
     
     if (len(year_problems) == 0):
-        await callback.message.edit_text(f"Проблем за этот период нет🚫")
+        await callback.message.edit_text(f"Проблем за этот период нет 🚫")
         return
     
     users[callback.from_user.id]['page'] = 0
@@ -286,7 +282,7 @@ async def process_button_year_problem(callback: CallbackQuery):
     all_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems]
     
     if (len(all_problems) == 0):
-        await callback.message.edit_text(f"Проблем за этот период нет🚫")
+        await callback.message.edit_text(f"Проблем за этот период нет 🚫")
         return
     
     users[callback.from_user.id]['page'] = 0
@@ -347,7 +343,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     if callback.data[:-1] in problems:
         await callback.message.edit_text(send_problem(callback.data[:-1]))
     else:
-        await callback.message.edit_text(f'Проблемы с таким номером не найдено🚫')
+        await callback.message.edit_text(f'Проблемы с таким номером не найдено 🚫')
 
 
 @dp.callback_query(Text(text=['devices_all']))
@@ -356,7 +352,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     devices_all = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i  in devices]
     
     if (len(devices_all) == 0):
-        await callback.message.edit_text(f"Устройств не найдено🚫")
+        await callback.message.edit_text(f"Устройств не найдено 🚫")
         return
     
     users[callback.from_user.id]['page'] = 0
@@ -374,7 +370,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7]
     
     if (len(devices_rec) == 0):
-        await callback.message.edit_text(f"Устройств не найдено🚫")
+        await callback.message.edit_text(f"Устройств не найдено 🚫")
         return
     
     users[callback.from_user.id]['page'] = 0
@@ -392,7 +388,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     problems_rec = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7]
     
     if (len(problems_rec) == 0):
-        await callback.message.edit_text(f"Рекомендованных проблем не найдено🚫")
+        await callback.message.edit_text(f"Рекомендованных проблем не найдено 🚫")
         return
     
     users[callback.from_user.id]['page'] = 0
@@ -401,7 +397,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     users[callback.from_user.id]['spisok'] = problems_rec
     
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
 @dp.callback_query(lambda callback: callback.data and "_" in callback.data and callback.data[0] in ["✅", "❗"])
@@ -409,7 +405,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     if callback.data[1:] in devices:
         await callback.message.edit_text(send_device(callback.data[1:]))
     else:
-        await callback.message.edit_text(f'Устройства с таким назанием не найдено🚫')
+        await callback.message.edit_text(f'Устройства с таким назанием не найдено 🚫')
 
 #Если ловится не зарегестрированный коллбэк
 @dp.callback_query()
