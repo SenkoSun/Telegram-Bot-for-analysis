@@ -38,10 +38,11 @@ def new_user(id):
             }
 
 today = str(d.today()).replace("-", ".")
+actual_date = "0.0.0"
+
 
 PAGE_PROBLEM = 20
 PAGE_DEVICE = 20
-
 
 def analiz():
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -63,6 +64,8 @@ def analiz():
                 devices[sms[1][1]]["date_last_break"] = sms[3][2] 
                 if sms[0][1] not in devices[sms[1][1]].setdefault("problems", []): 
                     devices[sms[1][1]]["problems"].append(sms[0][1])
+                    
+                actual_date = sms[3][2]
                 
                 
             elif (sms[0][0][0] == "✅"):    
@@ -73,6 +76,8 @@ def analiz():
                 if (sms[1][1] in devices):
                     devices[sms[1][1]]["check"] = True
                 
+                actual_date = sms[3][2]
+            
     
 def send_problem(number):
     problema = problems[number]
@@ -116,10 +121,10 @@ def compare_date(date1, date2):
 
 async def set_main_menu(bot: Bot):
     main_menu_commands = [
-        BotCommand(command='/start',
-                   description='начальное сообщение 😁'),
-        BotCommand(command='/help',
-                   description='список всех команд ❓'),
+        # BotCommand(command='/start',
+        #            description='начальное сообщение 😁'),
+        # BotCommand(command='/help',
+        #            description='список всех команд ❓'),
         BotCommand(command='/stats',
                    description='общая статистика проблем за день/месяц/год/ 🧐'),
         BotCommand(command='/all_device',
@@ -158,7 +163,9 @@ async def start(message: Message):
     new_user(message.from_user.id)
     await message.answer(f'Я создан, чтобы собирать данные и их анализировать. 😄\n'
                          'Вы можете узнать список всех команд на /help ❔\n' 
-                         'Или вы можете написать номер конкретной проблемы или устройства 🫰')
+                         'Или вы можете написать номер конкретной проблемы или устройства 🫰'
+                         f'Актуальность данных до {actual_date}'
+                         )
 
 
 @dp.message(Command(commands="help"))
