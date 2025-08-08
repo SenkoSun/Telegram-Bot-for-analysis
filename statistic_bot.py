@@ -9,7 +9,6 @@ from aiogram import F
 from aiogram.types import CallbackQuery
 from pathlib import Path
 import json
-import re
 from datetime import date as d
 
 
@@ -422,7 +421,6 @@ async def process_button_day_problem(callback: CallbackQuery):
     print(f"Сообщение с кнопкой: message_id={callback.message.message_id}")
     print(f"Чат: chat_id={callback.message.chat.id}")
     
-    # Обязательно подтверждаем нажатие (иначе Telegram покажет "часики")
     await callback.answer()
 
 
