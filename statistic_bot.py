@@ -64,10 +64,11 @@ def analiz():
                 problems[sms[0][1]]["device"] = sms[1][1]
                 problems[sms[0][1]]["date"] = sms[3][2]
                 problems[sms[0][1]]["place"] = (sms[1][1].split("_")[0] if sms[1][1].split("_")[0] not in ["local", "inet"] else sms[1][1].split("_")[1])
+                problems[sms[0][1]]["description"] = " ".join(sms[2])
                 
                 devices.setdefault(sms[1][1], dict())
                 devices[sms[1][1]]["check"] = False
-                # devices[sms[1][1]]["date_last_break"] = sms[3][2]
+                devices[sms[1][1]]["description"] = " ".join(sms[2])
                 
                 if sms[0][1] not in devices[sms[1][1]].setdefault("problems", []): 
                     devices[sms[1][1]]["problems"].append(sms[0][1])
@@ -94,6 +95,8 @@ def send_problem(number):
             f'Статус - {"Решена ✅" if problema["check"] else "Не решена ❌"}\n' \
             f'Проблема с устройством - {problema["device"]} 🧾\n' \
             f'Дата - {problema["date"]} 📅\n' \
+            f'Место - {problema["place"]} 🧭\n' \
+            f'Описание - {problema["description"] if problema["description"][0] != "❌" else problema["description"][1:]}📒'
 
     return otvet
 
@@ -106,7 +109,9 @@ def send_device(name):
             f'Статистика проблем с устройством за все время - {len(device["problems"])} 🕛\n' \
             f'Статистика проблем с устройством за год - {len([i for i in device["problems"] if compare_date(problems[i]["date"], today)[2] == 0])} 🕰️\n'\
             f'Статистика проблем с устройством за месяц - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ⏲️\n'\
-            f'Статистика проблем с устройством за день - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)) == 0])} ⏱️'
+            f'Статистика проблем с устройством за день - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)) == 0])} ⏱️\n' \
+            f'Даты последних 5 поломок - {", ".join(device["dates_break"][-5:])}\n' \
+            f'Последние 5 проблем связанных с устройством - {", ".join(device["problems"][-5:])}'
     return otvet
 
 
