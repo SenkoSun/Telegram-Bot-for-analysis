@@ -4,13 +4,15 @@ from aiogram.types import BotCommand
 from aiogram.filters import Command, Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InputFile
 import asyncio
 from aiogram import F
 from aiogram.types import CallbackQuery
 from pathlib import Path
 import json
 from datetime import date as d
-
+import matplotlib.pyplot as plt
+import io
 
 
 file_path = Path(__file__).parent / 'json' / 'result.json' # Поменять на 'test_result.json'
@@ -45,6 +47,7 @@ PAGE_PROBLEM = 20
 PAGE_DEVICE = 20
 
 def analiz():
+    global actual_date
     with open(file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
@@ -81,7 +84,7 @@ def analiz():
     
 def send_problem(number):
     problema = problems[number]
-    otvet = f'Проблема номер - {number} 🎰\n' \
+    otvet = f'Проблема номер - {number} 🔢\n' \
             f'Статус - {"Решена ✅" if problema["check"] else "Не решена ❌"}\n' \
             f'Проблема с устройством - {problema["device"]} 🧾\n' \
             f'Дата - {problema["date"]} 📅\n' \
@@ -163,7 +166,7 @@ async def start(message: Message):
     new_user(message.from_user.id)
     await message.answer(f'Я создан, чтобы собирать данные и их анализировать. 😄\n'
                          'Вы можете узнать список всех команд на /help ❔\n' 
-                         'Или вы можете написать номер конкретной проблемы или устройства 🫰'
+                         'Или вы можете написать номер конкретной проблемы или устройства 🫰\n'
                          f'Актуальность данных до {actual_date}'
                          )
 
@@ -196,23 +199,70 @@ async def all_device(message: Message):
     sms = f'Всего зарегистрированных устройств - {len(devices)} 🌍 \n' \
           f'Устройств в работе - {len([i for i in devices if devices[i]["check"]])} 🌇 \n' \
           f'Устройств в оффлайне - {len([i for i in devices if not devices[i]["check"]])} 🌃 \n'
+          
+    # graph = dict()
+    # for i in devices:
+    #     if compare_date(devices[i]['date_last_break'], today)[1] <= 4:
+    #         graph.setdefault(devices[i]['date_last_break'].split('.')[1], 0)
+    #         graph[devices[i]['date_last_break'].split('.')[1]] += 1
+    
+    
+    # plt.figure(figsize=(10, 6))
+    # plt.bar(list(graph.keys()), list(graph.values()))
+    # plt.xlabel("Месяц года")
+    # plt.ylabel("Устройства с проблемами")
+    # plt.title('График устройств с проблемами за месяц')
+    # plt.show()
+    
+    
+    # # Сохраняем график в буфер (без сохранения на диск)
+    # buf = io.BytesIO()
+    # plt.savefig(buf, format='jpg')
+    # buf.seek(0)  # Перемещаем указатель в начало буфера
+    # plt.close()
+    # await message.reply_photo(buf)
+        
+        
+        
     await message.answer(sms, reply_markup=generator_inline_buttons(1, devices_all = "Список устройств 🗒️"))
 
 @dp.message(Command(commands="rec_device"))
 async def rec_device(message: Message):
     new_user(message.from_user.id)
+    devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7][:PAGE_DEVICE]
+    
+    if (len(devices_rec) == 0):
+        await message.answer(f"Устройств не найдено 🚫")
+        return
+    
+    users[message.from_user.id]['page'] = 0
+    users[message.from_user.id]['type_spisok'] = "device"
+    users[message.from_user.id]['maxpage'] = len(devices_rec) // PAGE_DEVICE + bool(len(devices_rec) % PAGE_DEVICE) - 1
+    users[message.from_user.id]['spisok'] = devices_rec
     
     sms = f'Всего зарегистрированных устройств - {len(devices)} ✅ \n' \
           f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n'
-    await message.answer(sms, reply_markup=generator_inline_buttons(1, devices_rec = "Список устройств 🗒️"))
-
+    await message.answer(sms,  reply_markup=generator_inline_buttons(2, *users[message.from_user.id]['spisok'][users[message.from_user.id]['page'] * PAGE_DEVICE:users[message.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE]))
+    
 @dp.message(Command(commands="check"))
 async def check(message: Message):
     new_user(message.from_user.id)
+    problems_rec = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7]
+    
+    if (len(problems_rec) == 0):
+        await message.answer(f"Рекомендованных проблем не найдено 🚫")
+        return
+    
+    users[message.from_user.id]['page'] = 0
+    users[message.from_user.id]['type_spisok'] = "problem"
+    users[message.from_user.id]['maxpage'] = len(problems_rec) // PAGE_PROBLEM + bool(len(problems_rec) % PAGE_PROBLEM) - 1
+    users[message.from_user.id]['spisok'] = problems_rec
+
     sms = f'Проблем за месяц - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ✅ \n' \
           f'Рекоммендованных проблем к рассмотрению - {len([i for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ⁉️\n'     
         
-    await message.answer(sms, reply_markup=generator_inline_buttons(1, problems_rec = "Список проблем 🗒️"))
+    await message.answer(sms, reply_markup=generator_inline_buttons(5, *users[message.from_user.id]['spisok'][users[message.from_user.id]['page'] * PAGE_PROBLEM:users[message.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM]))
+
 
 @dp.message(lambda msg: msg.text and msg.text.isdigit())
 async def number_problem(message: Message):
