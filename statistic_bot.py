@@ -5,6 +5,7 @@ from aiogram.filters import Command, Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InputFile
+from aiogram.types import BufferedInputFile
 import asyncio
 from aiogram import F
 from aiogram.types import CallbackQuery
@@ -41,7 +42,9 @@ def new_user(id):
 
 today = str(d.today()).replace("-", ".")
 actual_date = "0.0.0"
-
+months = {"01": "Январь", "02": "Февраль", "03": "Март", "04": "Апрель",
+               "05": "Май", "06": "Июнь", "07": "Июль", "08": "Август",
+               "09": "Сентябрь", "10": "Октябрь", "11": "Ноябрь", "12": "Декабрь"}
 
 PAGE_PROBLEM = 20
 PAGE_DEVICE = 20
@@ -64,9 +67,12 @@ def analiz():
                 
                 devices.setdefault(sms[1][1], dict())
                 devices[sms[1][1]]["check"] = False
-                devices[sms[1][1]]["date_last_break"] = sms[3][2] 
+                # devices[sms[1][1]]["date_last_break"] = sms[3][2]
+                
                 if sms[0][1] not in devices[sms[1][1]].setdefault("problems", []): 
                     devices[sms[1][1]]["problems"].append(sms[0][1])
+                if sms[3][2] not in devices[sms[1][1]].setdefault("dates_break", []): 
+                    devices[sms[1][1]]["dates_break"].append(sms[3][2])
                     
                 actual_date = sms[3][2]
                 
@@ -96,7 +102,7 @@ def send_device(name):
     device = devices[name]
     otvet = f'Название устройства - {name} 🆎\n' \
             f'Статус - {"Проблем нет ✅" if device["check"] else "Имеются проблемы ❌"}\n' \
-            f'Дата последней проблемы - {device["date_last_break"]} 📆\n' \
+            f'Дата последней проблемы - {device["dates_break"][-1]} 📆\n' \
             f'Статистика проблем с устройством за все время - {len(device["problems"])} 🕛\n' \
             f'Статистика проблем с устройством за год - {len([i for i in device["problems"] if compare_date(problems[i]["date"], today)[2] == 0])} 🕰️\n'\
             f'Статистика проблем с устройством за месяц - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ⏲️\n'\
@@ -189,7 +195,30 @@ async def stats(message: Message):
     sms = f'Всего проблем - {len(problems)} 🕛 \n' \
           f'Проблем за год - {len([i for i in problems if compare_date(problems[i]["date"], today)[2] == 0])} 🕰️ \n' \
           f'Проблем за месяц - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ⏲️ \n' \
-          f'Проблем за день - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)) == 0])} ⏱️ \n'     
+          f'Проблем за день - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)) == 0])} ⏱️ \n'
+          
+              
+    graph = dict()
+    for i in problems:
+        if compare_date(problems[i]['date'], today)[1] <= 4:
+            graph.setdefault(months[problems[i]['date'].split('.')[1]], 0)
+            graph[months[problems[i]['date'].split('.')[1]]] += 1
+    
+    
+    plt.figure(figsize=(10, 6))
+    plt.bar(sorted(list(graph.keys()), key=lambda x: list(months.values()).index(x)), list(graph.values()))
+    # plt.xlabel("Месяц года")
+    plt.ylabel("Проблем за месяц")
+    plt.title('График проблем в зависимости от месяца')
+    plt.tight_layout()
+    
+    # Сохраняем график в буфер (без сохранения на диск)
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    await message.answer_photo(BufferedInputFile(buf.read(), filename='problems.png'))
+    plt.close()
+    buf.close()
         
     await message.answer(sms, reply_markup=generator_inline_buttons(3, problems_day = "день ⏱️", problems_mounth = "месяц ⏲️", problems_year = "год 🕰️", problems_all='все время 🕛'))
 
@@ -200,36 +229,36 @@ async def all_device(message: Message):
           f'Устройств в работе - {len([i for i in devices if devices[i]["check"]])} 🌇 \n' \
           f'Устройств в оффлайне - {len([i for i in devices if not devices[i]["check"]])} 🌃 \n'
           
-    # graph = dict()
-    # for i in devices:
-    #     if compare_date(devices[i]['date_last_break'], today)[1] <= 4:
-    #         graph.setdefault(devices[i]['date_last_break'].split('.')[1], 0)
-    #         graph[devices[i]['date_last_break'].split('.')[1]] += 1
+    graph = dict()
+    for i in devices:
+        k = []
+        for j in devices[i]["dates_break"]:
+            if (compare_date(j, today))[1] <= 4 and months[j.split('.')[1]] not in k:
+                graph.setdefault(months[j.split('.')[1]], 0)
+                graph[months[j.split('.')[1]]] += 1
+                k.append(months[j.split('.')[1]])
     
-    
-    # plt.figure(figsize=(10, 6))
-    # plt.bar(list(graph.keys()), list(graph.values()))
+    plt.figure(figsize=(10, 6))
+    plt.bar(sorted(list(graph.keys()), key=lambda x: list(months.values()).index(x)), list(graph.values()))
     # plt.xlabel("Месяц года")
-    # plt.ylabel("Устройства с проблемами")
-    # plt.title('График устройств с проблемами за месяц')
-    # plt.show()
+    plt.ylabel("Количество устройств")
+    plt.title('График устройств с проблемамии в зависимости от месяца')
+    plt.tight_layout()
     
-    
-    # # Сохраняем график в буфер (без сохранения на диск)
-    # buf = io.BytesIO()
-    # plt.savefig(buf, format='jpg')
-    # buf.seek(0)  # Перемещаем указатель в начало буфера
-    # plt.close()
-    # await message.reply_photo(buf)
-        
-        
+    # Сохраняем график в буфер (без сохранения на диск)
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    await message.answer_photo(BufferedInputFile(buf.read(), filename='devices.png'))
+    plt.close()
+    buf.close()
         
     await message.answer(sms, reply_markup=generator_inline_buttons(1, devices_all = "Список устройств 🗒️"))
 
 @dp.message(Command(commands="rec_device"))
 async def rec_device(message: Message):
     new_user(message.from_user.id)
-    devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7][:PAGE_DEVICE]
+    devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7][:PAGE_DEVICE]
     
     if (len(devices_rec) == 0):
         await message.answer(f"Устройств не найдено 🚫")
@@ -241,7 +270,7 @@ async def rec_device(message: Message):
     users[message.from_user.id]['spisok'] = devices_rec
     
     sms = f'Всего зарегистрированных устройств - {len(devices)} ✅ \n' \
-          f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n'
+          f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n'
     await message.answer(sms,  reply_markup=generator_inline_buttons(2, *users[message.from_user.id]['spisok'][users[message.from_user.id]['page'] * PAGE_DEVICE:users[message.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE]))
     
 @dp.message(Command(commands="check"))
@@ -424,7 +453,7 @@ async def process_button_day_problem(callback: CallbackQuery):
 @dp.callback_query(Text(text=['devices_rec']))
 async def process_button_day_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
-    devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["date_last_break"], today)] if sum(date[1:]) == 0 and date[0] <= 7]
+    devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7]
     
     if (len(devices_rec) == 0):
         await callback.message.edit_text(f"Устройств не найдено 🚫")
