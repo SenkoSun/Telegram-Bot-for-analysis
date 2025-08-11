@@ -86,7 +86,6 @@ def analiz():
                 if (sms[1][1] in devices):
                     devices[sms[1][1]]["check"] = True
                 
-                actual_date = sms[3][2]
             
     
 def send_problem(number):
@@ -510,6 +509,26 @@ async def process_button_day_problem(callback: CallbackQuery):
     
     await callback.answer()
 
+@dp.message(lambda msg: msg.document and msg.document.file_name.endswith('.json'))
+async def handle_json_file(message: Message):
+    try:
+        file = await bot.get_file(message.document.file_id)
+
+        save_filename = file_path
+        
+        await bot.download_file(file.file_path, destination=save_filename)
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            json.load(f)
+            
+        analiz()
+        
+        await message.answer(f"✅ JSON-файл успешно сохранен\n"\
+                             f"Актуальная дата - {actual_date}")
+    except json.JSONDecodeError:
+        await message.answer("❌ Ошибка: файл не является валидным JSON")
+    except Exception as e:
+        await message.answer(f"❌ Произошла ошибка: {str(e)}")
 
 @dp.message()
 async def any_msg(message: Message):
