@@ -1,7 +1,7 @@
 from config import BOT_TOKEN
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
-from aiogram.filters import Command, Text
+from aiogram.filters import Command, CommandObject
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InputFile
@@ -42,6 +42,7 @@ def new_user(id):
 
 today = str(d.today()).replace("-", ".")
 actual_date = "0.0.0"
+average_failures = 0
 months = {"01": "Январь", "02": "Февраль", "03": "Март", "04": "Апрель",
                "05": "Май", "06": "Июнь", "07": "Июль", "08": "Август",
                "09": "Сентябрь", "10": "Октябрь", "11": "Ноябрь", "12": "Декабрь"}
@@ -50,7 +51,7 @@ PAGE_PROBLEM = 20
 PAGE_DEVICE = 20
 
 def analiz():
-    global actual_date
+    global actual_date, average_failures
     with open(file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
@@ -72,6 +73,7 @@ def analiz():
                 
                 if sms[0][1] not in devices[sms[1][1]].setdefault("problems", []): 
                     devices[sms[1][1]]["problems"].append(sms[0][1])
+                    average_failures += 1
                 if sms[3][2] not in devices[sms[1][1]].setdefault("dates_break", []): 
                     devices[sms[1][1]]["dates_break"].append(sms[3][2])
                     
@@ -85,6 +87,8 @@ def analiz():
                 
                 if (sms[1][1] in devices):
                     devices[sms[1][1]]["check"] = True
+    
+    average_failures = average_failures // len(devices.keys())
                 
             
     
@@ -109,8 +113,7 @@ def send_device(name):
             f'Статистика проблем с устройством за год - {len([i for i in device["problems"] if compare_date(problems[i]["date"], today)[2] == 0])} 🕰️\n'\
             f'Статистика проблем с устройством за месяц - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ⏲️\n'\
             f'Статистика проблем с устройством за день - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)) == 0])} ⏱️\n' \
-            f'Даты последних 5 поломок - {", ".join(device["dates_break"][-5:])}\n' \
-            f'Последние 5 проблем связанных с устройством - {", ".join(device["problems"][-5:])}'
+            f'Последние проблемы связанных с устройством - {", ".join([i for i in device["problems"] if not problems[i]["check"]][-5:])}'
     return otvet
 
 
@@ -262,39 +265,22 @@ async def all_device(message: Message):
 @dp.message(Command(commands="rec_device"))
 async def rec_device(message: Message):
     new_user(message.from_user.id)
-    devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7][:PAGE_DEVICE]
-    
-    if (len(devices_rec) == 0):
-        await message.answer(f"Устройств не найдено 🚫")
-        return
-    
-    users[message.from_user.id]['page'] = 0
-    users[message.from_user.id]['type_spisok'] = "device"
-    users[message.from_user.id]['maxpage'] = len(devices_rec) // PAGE_DEVICE + bool(len(devices_rec) % PAGE_DEVICE) - 1
-    users[message.from_user.id]['spisok'] = devices_rec
     
     sms = f'Всего зарегистрированных устройств - {len(devices)} ✅ \n' \
-          f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n'
-    await message.answer(sms,  reply_markup=generator_inline_buttons(2, *users[message.from_user.id]['spisok'][users[message.from_user.id]['page'] * PAGE_DEVICE:users[message.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE]))
+          f'Устройств рекомендованных к рассмотрению - {len([f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n' \
+          f'Устройства с проблемами⬇️'
+    
+    await message.answer(sms, reply_markup=generator_inline_buttons(3, rec_devices_week = "За неделю", rec_devices_mounth = "За месяц", rec_devices_year = "За пол года", ignore = "Выбрать период"))
+
     
 @dp.message(Command(commands="check"))
 async def check(message: Message):
     new_user(message.from_user.id)
-    problems_rec = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7]
-    
-    if (len(problems_rec) == 0):
-        await message.answer(f"Рекомендованных проблем не найдено 🚫")
-        return
-    
-    users[message.from_user.id]['page'] = 0
-    users[message.from_user.id]['type_spisok'] = "problem"
-    users[message.from_user.id]['maxpage'] = len(problems_rec) // PAGE_PROBLEM + bool(len(problems_rec) % PAGE_PROBLEM) - 1
-    users[message.from_user.id]['spisok'] = problems_rec
-
     sms = f'Проблем за месяц - {len([i for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ✅ \n' \
-          f'Рекоммендованных проблем к рассмотрению - {len([i for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ⁉️\n'     
+          f'Рекоммендованных проблем к рассмотрению - {len([i for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ⁉️\n' \
+          f'Не решенные проблемы⬇️'
         
-    await message.answer(sms, reply_markup=generator_inline_buttons(5, *users[message.from_user.id]['spisok'][users[message.from_user.id]['page'] * PAGE_PROBLEM:users[message.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM]))
+    await message.answer(sms, reply_markup=generator_inline_buttons(3, rec_problems_week = "За неделю", rec_problems_mounth = "За месяц", rec_problems_year = "За пол года", ignore = "Выбрать период"))
 
 
 @dp.message(lambda msg: msg.text and msg.text.isdigit())
@@ -309,10 +295,10 @@ async def number_problem(message: Message):
     if message.text in devices.keys():
         await message.answer(send_device(message.text))
     else:
-        await message.answer(f'Такого устройства не найдено 🚫')    
+        await message.answer(f'Такого устройства не найдено 🚫')   
 
 
-@dp.callback_query(Text(text=['problems_day']))
+@dp.callback_query(F.text(text=['problems_day']))
 async def process_button_day_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     day_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if sum(compare_date(problems[i]["date"], today)) == 0]
@@ -330,7 +316,7 @@ async def process_button_day_problem(callback: CallbackQuery):
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
     
-@dp.callback_query(Text(text=['problems_mounth']))
+@dp.callback_query(F.text(text=['problems_mounth']))
 async def process_button_mounth_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     mounth_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0]
@@ -348,7 +334,7 @@ async def process_button_mounth_problem(callback: CallbackQuery):
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
-@dp.callback_query(Text(text=['problems_year']))
+@dp.callback_query(F.text(text=['problems_year']))
 async def process_button_year_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     year_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if compare_date(problems[i]["date"], today)[2] == 0]
@@ -366,7 +352,7 @@ async def process_button_year_problem(callback: CallbackQuery):
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
-@dp.callback_query(Text(text=['problems_all']))
+@dp.callback_query(F.text(text=['problems_all']))
 async def process_button_year_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     all_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems]
@@ -383,9 +369,61 @@ async def process_button_year_problem(callback: CallbackQuery):
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
+
+
+@dp.callback_query(F.data.startswith("rec_problems"))
+async def process_button_day_problem(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    period = F.data.split("_")[2]
+
+    if period == "week":
+        problems_rec = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] < 7]
+    elif period == "month":
+        problems_rec = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0]
+    elif period == "year":
+        problems_rec = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if date[2] == 0 and date[1] < 6]
     
+    if (len(problems_rec) == 0):
+        await callback.message.edit_text(f"Рекомендованных проблем не найдено 🚫")
+        return
     
-@dp.callback_query(Text(text=['forward']))
+    users[callback.from_user.id]['page'] = 0
+    users[callback.from_user.id]['type_spisok'] = "problem"
+    users[callback.from_user.id]['maxpage'] = len(problems_rec) // PAGE_PROBLEM + bool(len(problems_rec) % PAGE_PROBLEM) - 1
+    users[callback.from_user.id]['spisok'] = problems_rec
+    
+    await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
+                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
+
+
+@dp.callback_query(F.data.startswith("rec_devices"))
+async def process_button_day_problem(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    period = F.data.split("_")[2]
+
+    if period == "week":
+        devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7]
+    elif period == "month":
+        devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0]
+    elif period == "year":
+        devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if date[2] == 0 and date[1] < 6]
+
+    if (len(devices_rec) == 0):
+        await callback.message.edit_text(f"Устройств не найдено 🚫")
+        return
+    
+    users[callback.from_user.id]['page'] = 0
+    users[callback.from_user.id]['type_spisok'] = "device"
+    users[callback.from_user.id]['maxpage'] = len(devices_rec) // PAGE_DEVICE + bool(len(devices_rec) % PAGE_DEVICE) - 1
+    users[callback.from_user.id]['spisok'] = devices_rec
+    
+    await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
+                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
+
+
+@dp.callback_query(F.text(text=['forward']))
 async def process_button_forward_press(callback: CallbackQuery):
     elements_in_page = (PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else PAGE_DEVICE)
     width = 5 if users[callback.from_user.id]['type_spisok'] == "problem" else 2
@@ -407,7 +445,7 @@ async def process_button_forward_press(callback: CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(Text(text=['backward']))
+@dp.callback_query(F.text(text=['backward']))
 async def process_button_backward_press(callback: CallbackQuery):
     elements_in_page = (PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else PAGE_DEVICE)
     width = 5 if users[callback.from_user.id]['type_spisok'] == "problem" else 2
@@ -427,7 +465,6 @@ async def process_button_backward_press(callback: CallbackQuery):
                                                                 forward='>>'))
     await callback.answer()
 
-
 @dp.callback_query(lambda callback: callback.data[:-1].isdigit())
 async def process_button_day_problem(callback: CallbackQuery):
     if callback.data[:-1] in problems:
@@ -435,60 +472,6 @@ async def process_button_day_problem(callback: CallbackQuery):
     else:
         await callback.message.edit_text(f'Проблемы с таким номером не найдено 🚫')
 
-
-@dp.callback_query(Text(text=['devices_all']))
-async def process_button_day_problem(callback: CallbackQuery):
-    new_user(callback.from_user.id)
-    devices_all = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i  in devices]
-    
-    if (len(devices_all) == 0):
-        await callback.message.edit_text(f"Устройств не найдено 🚫")
-        return
-    
-    users[callback.from_user.id]['page'] = 0
-    users[callback.from_user.id]['type_spisok'] = "device"
-    users[callback.from_user.id]['maxpage'] = len(devices_all) // PAGE_DEVICE + bool(len(devices_all) % PAGE_DEVICE) - 1
-    users[callback.from_user.id]['spisok'] = devices_all
-    
-    await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
-                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
-
-@dp.callback_query(Text(text=['devices_rec']))
-async def process_button_day_problem(callback: CallbackQuery):
-    new_user(callback.from_user.id)
-    devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7]
-    
-    if (len(devices_rec) == 0):
-        await callback.message.edit_text(f"Устройств не найдено 🚫")
-        return
-    
-    users[callback.from_user.id]['page'] = 0
-    users[callback.from_user.id]['type_spisok'] = "device"
-    users[callback.from_user.id]['maxpage'] = len(devices_rec) // PAGE_DEVICE + bool(len(devices_rec) % PAGE_DEVICE) - 1
-    users[callback.from_user.id]['spisok'] = devices_rec
-    
-    await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
-                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
-
-@dp.callback_query(Text(text=['problems_rec']))
-async def process_button_day_problem(callback: CallbackQuery):
-    new_user(callback.from_user.id)
-    problems_rec = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7]
-    
-    if (len(problems_rec) == 0):
-        await callback.message.edit_text(f"Рекомендованных проблем не найдено 🚫")
-        return
-    
-    users[callback.from_user.id]['page'] = 0
-    users[callback.from_user.id]['type_spisok'] = "problem"
-    users[callback.from_user.id]['maxpage'] = len(problems_rec) // PAGE_PROBLEM + bool(len(problems_rec) % PAGE_PROBLEM) - 1
-    users[callback.from_user.id]['spisok'] = problems_rec
-    
-    await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
-                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
 @dp.callback_query(lambda callback: callback.data and "_" in callback.data and callback.data[0] in ["✅", "❗"])
 async def process_button_day_problem(callback: CallbackQuery):
@@ -508,6 +491,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     print(f"Чат: chat_id={callback.message.chat.id}")
     
     await callback.answer()
+
 
 @dp.message(lambda msg: msg.document and msg.document.file_name.endswith('.json'))
 async def handle_json_file(message: Message):
