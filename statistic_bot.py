@@ -433,8 +433,8 @@ async def process_button_callendar(callback: CallbackQuery):
     users[callback.from_user.id]["type_spisok"] = profile
     
     await callback.message.edit_text(
-        "Выберите начальную дату: 📅　　　　　　　　　　　　　　　　　　　       　　　　　　　　　　　　　　   　　　　　　　　　　 \n" \
-        "Для этого воспользуйтесь каллендарем ⬇️",
+        "Выберите начальную дату из предложенного календаря ниже 📅",
+        # "Для этого воспользуйтесь каллендарем ⬇️",
         reply_markup=generate_calendar(now.year, now.month, "start")
     )
 
@@ -571,23 +571,58 @@ async def process_date_selection(callback: types.CallbackQuery):
     if select_mode == "start":
         users[callback.from_user.id]['datefirst'] = date
         await callback.message.edit_text(
-            f"Выбрана начальная дата: <b>{datefirst}</b>     📅　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 \n"\
-             "Теперь выберите конечную дату:",
+            f"Выбрана начальная дата: {users[callback.from_user.id]['datefirst']} 📅\n"\
+             "Пожалуйста, выберите конечную дату для формирования отчёта: ",
             reply_markup=generate_calendar(int(year), int(month), "end"),
             parse_mode="HTML"
         )
     else:
-        if datetime(int(date.split(".")[2]), int(date.split(".")[1]), int(date.split(".")[0])) > datetime(int(datefirst.split(".")[2]), int(datefirst.split(".")[1]), int(datefirst.split(".")[0])):
-            await callback.message.edit_text(
-                f"Период выбран: <b>{datefirst} - {date}</b> ✅\n",
-                parse_mode="HTML"
-            )
-            users[callback.from_user.id]['datefirst'] = ""
+        if datetime(int(date.split(".")[2]), int(date.split(".")[1]), int(date.split(".")[0])) >= datetime(int(datefirst.split(".")[2]), int(datefirst.split(".")[1]), int(datefirst.split(".")[0])):
+            first = datetime(int(datefirst.split(".")[2]), int(datefirst.split(".")[1]), int(datefirst.split(".")[0]))
+            second =  datetime(int(date.split(".")[2]), int(date.split(".")[1]), int(date.split(".")[0]))
+            if users[callback.from_user.id]["type_spisok"] == "problem":
+                problems_rec = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if not problems[i]["check"] for date in [datetime(*[int(j) for j in problems[i]["date"].split(".")])] if first <=date and second >= date]
+
+                users[callback.from_user.id]['page'] = 0
+                users[callback.from_user.id]['maxpage'] = len(problems_rec) // PAGE_PROBLEM + bool(len(problems_rec) % PAGE_PROBLEM) - 1
+                users[callback.from_user.id]['spisok'] = problems_rec
+                if (len(problems_rec) == 0):
+                    await callback.message.edit_text(f"Рекомендованных проблем в данном периоде не найдено 🚫")
+                    users[callback.from_user.id]['datefirst'] = ""
+                    return
+
+                await callback.message.edit_text(f"Период выбран: <b>{datefirst} - {date}</b> ✅\n" \
+                                                 f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
+                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')),
+                                                parse_mode="HTML"
+                                                )
+
+
+            elif users[callback.from_user.id]["type_spisok"] == "device":
+                devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [datetime(*[int(j) for j in devices[i]["dates_break"][-1].split(".")])] if second >= date and date >= first]
+            
+                users[callback.from_user.id]['page'] = 0
+                users[callback.from_user.id]['maxpage'] = len(devices_rec) // PAGE_DEVICE + bool(len(devices_rec) % PAGE_DEVICE) - 1
+                users[callback.from_user.id]['spisok'] = devices_rec
+
+                if (len(devices_rec) == 0):
+                    await callback.message.edit_text(f"Рекомендованных устройств в данном периоде не найдено 🚫")
+                    users[callback.from_user.id]['datefirst'] = ""
+                    return
+
+                await callback.message.edit_text(f"Период выбран: <b>{datefirst} - {date}</b> ✅\n" \
+                                                 f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
+                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')),
+                                                parse_mode="HTML"
+                                                )
         else:
             await callback.message.edit_text(
-            f"Выбрана дата, раньше начальной, используйте пожалуйста корректный период ❌　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 \n"\
-            f"Начальная дата: <b>{datefirst}</b> 📅\n" \
-            "Теперь выберите конечную дату:",
+            f"Выбрана дата, раньше начальной\n" \
+            f"Пожалуйста используйте корректный период ❌\n"\
+            f"Выбрана начальная дата: {users[callback.from_user.id]['datefirst']} 📅\n" \
+            "Пожалуйста, выберите конечную дату для формирования отчёта: ",
             reply_markup=generate_calendar(int(year), int(month), "end"),
             parse_mode="HTML"
         )
@@ -597,14 +632,13 @@ async def change_month(callback: types.CallbackQuery):
     _, _, select_mode, year, month = callback.data.split('_')
     if (select_mode == "start"):
         await callback.message.edit_text(
-                "Выберите начальную дату: 📅　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 　　　 ",
+                "Выберите начальную дату из предложенного календаря ниже 📅",
                 reply_markup=generate_calendar(int(year), int(month), select_mode),
-                parse_mode="HTML"
             )
     else:
         await callback.message.edit_text(
-                f"Выбрана начальная дата: <b>{users[callback.from_user.id]['datefirst']}</b> 📅　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 \n" \
-                 "Теперь выберите конечную дату:",
+                f"Выбрана начальная дата: {users[callback.from_user.id]['datefirst']} 📅\n" \
+                 "Пожалуйста, выберите конечную дату для формирования отчёта: ",
                 reply_markup=generate_calendar(int(year), int(month), select_mode),
                 parse_mode="HTML"
             )
@@ -623,7 +657,7 @@ async def choice_correct_month_year(callback: types.CallbackQuery):
             builder.button(text=f"{num_year}", callback_data=f"change_month_{select_mode}_{num_year}_{dop_date}")
         builder.adjust(4, 4, 4)
         await callback.message.edit_text(
-            "Выберите нужный год:　　　　　　　　　　　　　 ",
+            "Выберите нужный год:　　　  　　　 　　　　　  　　 ",
             reply_markup=builder.as_markup(),
         )
         
@@ -634,7 +668,7 @@ async def choice_correct_month_year(callback: types.CallbackQuery):
             builder.button(text=f"{name_month}", callback_data=f"change_month_{select_mode}_{dop_date}_{list(calendar.month_name).index(name_month)}")
         builder.adjust(4, 4, 4)
         await callback.message.edit_text(
-            "Выберите нужный месяц: 　　　　　　　　　　　　　 ",
+            "Выберите нужный месяц: 　　　　　　 　　　　　　　 ",
             reply_markup=builder.as_markup(),
         )
     
