@@ -11,9 +11,11 @@ from aiogram import F
 from aiogram.types import CallbackQuery
 from pathlib import Path
 import json
-from datetime import date as d
 import matplotlib.pyplot as plt
 import io
+from datetime import datetime, date
+import calendar
+from aiogram import types
 
 
 file_path = Path(__file__).parent / 'json' / 'result.json' # Поменять на 'test_result.json'
@@ -37,10 +39,11 @@ def new_user(id):
                 'maxpage': 1,
                 'bookmarks': set(),
                 'type_spisok': 'problem',
-                'spisok': []
+                'spisok': [],
+                'datefirst': ""
             }
 
-today = str(d.today()).replace("-", ".")
+today = str(str(datetime.today()).replace("-", ".").split()[0])
 actual_date = "0.0.0"
 average_failures = 0
 months = {"01": "Январь", "02": "Февраль", "03": "Март", "04": "Апрель",
@@ -118,7 +121,6 @@ def send_device(name):
 
 
 def compare_date(date1, date2):
-
     y1, m1, d1 = map(int, date1.split('.'))
     y2, m2, d2 = map(int, date2.split('.'))
     
@@ -267,7 +269,7 @@ async def rec_device(message: Message):
     new_user(message.from_user.id)
     
     sms = f'Всего зарегистрированных устройств - {len(devices)} ✅ \n' \
-          f'Устройств рекомендованных к рассмотрению - {len([f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n' \
+          f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n' \
           f'Устройства с проблемами⬇️'
     
     await message.answer(sms, reply_markup=generator_inline_buttons(3, rec_devices_week = "За неделю", rec_devices_mounth = "За месяц", rec_devices_year = "За пол года", ignore = "Выбрать период"))
@@ -479,8 +481,133 @@ async def process_button_day_problem(callback: CallbackQuery):
         await callback.message.edit_text(send_device(callback.data[1:]))
     else:
         await callback.message.edit_text(f'Устройства с таким назанием не найдено 🚫')
+    
 
-#Если ловится не зарегестрированный коллбэк
+# Генерация календаря
+def generate_calendar(year: int, month: int, select_mode: str = "start"):
+    builder = InlineKeyboardBuilder()
+    
+    #Заголовок (месяц и год)
+    month_name = calendar.month_name[month]
+    builder.button(text=f"{month_name}", callback_data=f"list_month_{select_mode}_{year}")
+    builder.button(text=f"{year}", callback_data=f"list_year_{select_mode}_{month}")
+    
+    # Дни недели
+    week_days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+    for day in week_days:
+        builder.button(text=day, callback_data="ignore")
+    
+    # Ячейки календаря
+    month_calendar = calendar.monthcalendar(year, month)
+    for week in month_calendar:
+        for day in week:
+            if day == 0:
+                builder.button(text=" ", callback_data="ignore")
+            # elif datefirst != "" and day == int(datefirst.split(".")[0]) and month == int(datefirst.split(".")[1]) and year == int(datefirst.split(".")[1]):
+            #     builder.button(
+            #         text=f"{day}✅", 
+            #         callback_data=f"period_{select_mode}_{year}_{month}_{day}",
+            #     )
+            else:
+                builder.button(
+                    text=f" {day} ", 
+                    callback_data=f"period_{select_mode}_{year}_{month}_{day}"
+                )
+    
+    # Кнопки "Назад" и "Вперед"
+    prev_month = month - 1 if month > 1 else 12
+    prev_year = year if month > 1 else year - 1
+    next_month = month + 1 if month < 12 else 1
+    next_year = year if month < 12 else year + 1
+    
+    builder.button(text="⬅️", callback_data=f"change_month_{select_mode}_{prev_year}_{prev_month}")
+    builder.button(text="➡️", callback_data=f"change_month_{select_mode}_{next_year}_{next_month}")
+
+    # Устанавливаем правильную разметку (7 колонок для дней недели)
+    builder.adjust(2, 7, *[7 for _ in month_calendar], 2)
+    
+    return builder.as_markup()
+
+# Обработка выбора даты
+@dp.callback_query(F.data.startswith("period_"))
+async def process_date_selection(callback: types.CallbackQuery):
+    _, select_mode, year, month, day = callback.data.split('_')
+    date = datetime(int(year), int(month), int(day)).strftime("%d.%m.%Y")
+    
+    datefirst = users[callback.from_user.id]['datefirst']
+    
+    if select_mode == "start":
+        users[callback.from_user.id]['datefirst'] = date
+        await callback.message.edit_text(
+            f"Выбрана начальная дата: <b>{users[callback.from_user.id]['datefirst']}</b>     📅　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 \n"\
+             "Теперь выберите конечную дату:",
+            reply_markup=generate_calendar(int(year), int(month), "end"),
+            parse_mode="HTML"
+        )
+    else:
+        if datetime(int(date.split(".")[2]), int(date.split(".")[1]), int(date.split(".")[0])) > datetime(int(datefirst.split(".")[2]), int(datefirst.split(".")[1]), int(datefirst.split(".")[0])):
+            await callback.message.edit_text(
+                f"Период выбран: <b>{datefirst} - {date}</b> ✅\n",
+                parse_mode="HTML"
+            )
+            users[callback.from_user.id]['datefirst'] = ""
+        else:
+            await callback.message.edit_text(
+            f"Выбрана дата, раньше начальной, используйте пожалуйста корректный период ❌　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 \n"\
+            f"Начальная дата: <b>{datefirst}</b> 📅\n" \
+            "Теперь выберите конечную дату:",
+            reply_markup=generate_calendar(int(year), int(month), "end"),
+            parse_mode="HTML"
+        )
+
+@dp.callback_query(F.data.startswith("change_month_"))
+async def change_month(callback: types.CallbackQuery):
+    _, _, select_mode, year, month = callback.data.split('_')
+    if (select_mode == "start"):
+        await callback.message.edit_text(
+                "Выберите начальную дату: 📅　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 　　　 ",
+                reply_markup=generate_calendar(int(year), int(month), select_mode),
+                parse_mode="HTML"
+            )
+    else:
+        await callback.message.edit_text(
+                f"Выбрана начальная дата: <b>{users[callback.from_user.id]['datefirst']}</b> 📅　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 \n" \
+                 "Теперь выберите конечную дату:",
+                reply_markup=generate_calendar(int(year), int(month), select_mode),
+                parse_mode="HTML"
+            )
+
+@dp.callback_query(F.data.startswith("list_"))
+async def choice_correct_month_year(callback: types.CallbackQuery):
+    builder = InlineKeyboardBuilder()
+    _, choice_date, select_mode, dop_date = callback.data.split('_')
+    
+    months_spisok = calendar.month_name[1:]
+    years = [i for i in range(datetime.now().year - 11, datetime.now().year + 1)]
+    
+    if choice_date == "year":
+        for num_year in years:
+            #builder.button(text=f"{str(num_year) + '✅' if (datefirst != '' and datefirst.split('.')[2] == num_year) else num_year}", callback_data=f"change_month_{select_mode}_{num_year}_{dop_date}")
+            builder.button(text=f"{num_year}", callback_data=f"change_month_{select_mode}_{num_year}_{dop_date}")
+        builder.adjust(4, 4, 4)
+        await callback.message.edit_text(
+            "Выберите нужный год:　　　　　　　　　　　　　 ",
+            reply_markup=builder.as_markup(),
+        )
+        
+            
+    elif choice_date == "month":
+        for name_month in months_spisok:
+            #builder.button(text=f"{name_month + '✅' if (datefirst != '' and datefirst.split('.')[1] == list(calendar.month_name).index(name_month)) else name_month}", callback_data=f"change_month_{select_mode}_{dop_date}_{list(calendar.month_name).index(name_month)}")
+            builder.button(text=f"{name_month}", callback_data=f"change_month_{select_mode}_{dop_date}_{list(calendar.month_name).index(name_month)}")
+        builder.adjust(4, 4, 4)
+        await callback.message.edit_text(
+            "Выберите нужный месяц: 　　　　　　　　　　　　　 ",
+            reply_markup=builder.as_markup(),
+        )
+    
+
+#Если ловится не зарегестрированный коллбэкd
 @dp.callback_query()
 async def process_button_day_problem(callback: CallbackQuery):
     print("--- Данные о нажатии ---")
@@ -491,6 +618,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     print(f"Чат: chat_id={callback.message.chat.id}")
     
     await callback.answer()
+
 
 
 @dp.message(lambda msg: msg.document and msg.document.file_name.endswith('.json'))
