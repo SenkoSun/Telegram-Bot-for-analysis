@@ -272,7 +272,7 @@ async def rec_device(message: Message):
           f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n' \
           f'Устройства с проблемами⬇️'
     
-    await message.answer(sms, reply_markup=generator_inline_buttons(3, rec_devices_week = "За неделю", rec_devices_mounth = "За месяц", rec_devices_year = "За пол года", ignore = "Выбрать период"))
+    await message.answer(sms, reply_markup=generator_inline_buttons(3, rec_devices_week = "За неделю", rec_devices_mounth = "За месяц", rec_devices_year = "За пол года", choice_period_device = "Выбрать период"))
 
     
 @dp.message(Command(commands="check"))
@@ -282,7 +282,7 @@ async def check(message: Message):
           f'Рекоммендованных проблем к рассмотрению - {len([i for i in problems if not problems[i]["check"] for date in [compare_date(problems[i]["date"], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ⁉️\n' \
           f'Не решенные проблемы⬇️'
         
-    await message.answer(sms, reply_markup=generator_inline_buttons(3, rec_problems_week = "За неделю", rec_problems_mounth = "За месяц", rec_problems_year = "За пол года", ignore = "Выбрать период"))
+    await message.answer(sms, reply_markup=generator_inline_buttons(3, rec_problems_week = "За неделю", rec_problems_mounth = "За месяц", rec_problems_year = "За пол года", choice_period_problem = "Выбрать период"))
 
 
 @dp.message(lambda msg: msg.text and msg.text.isdigit())
@@ -300,7 +300,7 @@ async def number_problem(message: Message):
         await message.answer(f'Такого устройства не найдено 🚫')   
 
 
-@dp.callback_query(F.text(text=['problems_day']))
+@dp.callback_query(F.data == 'problems_day')
 async def process_button_day_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     day_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if sum(compare_date(problems[i]["date"], today)) == 0]
@@ -318,7 +318,7 @@ async def process_button_day_problem(callback: CallbackQuery):
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
     
-@dp.callback_query(F.text(text=['problems_mounth']))
+@dp.callback_query(F.data == 'problems_mounth')
 async def process_button_mounth_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     mounth_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if sum(compare_date(problems[i]["date"], today)[1:]) == 0]
@@ -336,7 +336,7 @@ async def process_button_mounth_problem(callback: CallbackQuery):
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
-@dp.callback_query(F.text(text=['problems_year']))
+@dp.callback_query(F.data == 'problems_year')
 async def process_button_year_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     year_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems if compare_date(problems[i]["date"], today)[2] == 0]
@@ -354,7 +354,7 @@ async def process_button_year_problem(callback: CallbackQuery):
                          reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
-@dp.callback_query(F.text(text=['problems_all']))
+@dp.callback_query(F.data == 'problems_all')
 async def process_button_year_problem(callback: CallbackQuery):
     new_user(callback.from_user.id)
     all_problems = [str(i) + f"{'✅' if problems[i]['check'] else '❗'}" for i in problems]
@@ -425,7 +425,39 @@ async def process_button_day_problem(callback: CallbackQuery):
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
 
 
-@dp.callback_query(F.text(text=['forward']))
+@dp.callback_query(F.data.startswith("choice_period_"))
+async def process_button_callendar(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    _, _, profile = callback.data.split('_')
+    now = datetime.now()
+    users[callback.from_user.id]["type_spisok"] = profile
+    
+    await callback.message.edit_text(
+        "Выберите начальную дату: 📅　　　　　　　　　　　　　　　　　　　       　　　　　　　　　　　　　　   　　　　　　　　　　 \n" \
+        "Для этого воспользуйтесь каллендарем ⬇️",
+        reply_markup=generate_calendar(now.year, now.month, "start")
+    )
+
+
+@dp.callback_query(F.data == 'devices_all')
+async def process_button_day_problem(callback: CallbackQuery):
+    new_user(callback.from_user.id)
+    devices_all = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i  in devices]
+    
+    if (len(devices_all) == 0):
+        await callback.message.edit_text(f"Устройств не найдено 🚫")
+        return
+    
+    users[callback.from_user.id]['page'] = 0
+    users[callback.from_user.id]['type_spisok'] = "device"
+    users[callback.from_user.id]['maxpage'] = len(devices_all) // PAGE_DEVICE + bool(len(devices_all) % PAGE_DEVICE) - 1
+    users[callback.from_user.id]['spisok'] = devices_all
+    
+    await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
+                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
+                                                last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
+
+@dp.callback_query(F.data == 'forward')
 async def process_button_forward_press(callback: CallbackQuery):
     elements_in_page = (PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else PAGE_DEVICE)
     width = 5 if users[callback.from_user.id]['type_spisok'] == "problem" else 2
@@ -447,7 +479,7 @@ async def process_button_forward_press(callback: CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(F.text(text=['backward']))
+@dp.callback_query(F.data == 'backward')
 async def process_button_backward_press(callback: CallbackQuery):
     elements_in_page = (PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else PAGE_DEVICE)
     width = 5 if users[callback.from_user.id]['type_spisok'] == "problem" else 2
@@ -539,7 +571,7 @@ async def process_date_selection(callback: types.CallbackQuery):
     if select_mode == "start":
         users[callback.from_user.id]['datefirst'] = date
         await callback.message.edit_text(
-            f"Выбрана начальная дата: <b>{users[callback.from_user.id]['datefirst']}</b>     📅　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 \n"\
+            f"Выбрана начальная дата: <b>{datefirst}</b>     📅　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 \n"\
              "Теперь выберите конечную дату:",
             reply_markup=generate_calendar(int(year), int(month), "end"),
             parse_mode="HTML"
