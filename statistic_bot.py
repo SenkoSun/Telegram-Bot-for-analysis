@@ -465,6 +465,7 @@ async def process_button_day_problem(callback: CallbackQuery):
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
 
 
+#для выбора периода
 @dp.callback_query(F.data.startswith("choice_period_"))
 async def process_button_callendar(callback: CallbackQuery):
     new_user(callback.from_user.id)
@@ -529,7 +530,7 @@ async def process_button_backward_press(callback: CallbackQuery):
                                          reply_markup=generator_inline_buttons(width, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * elements_in_page:users[callback.from_user.id]['page'] * elements_in_page + elements_in_page],
                                                                 last_btn1='backward - <<',
                                                                 last_btn2='forward - >>'))
-    elif users[callback.from_user.id]['page'] == 0:
+    elif users[callback.from_user.id]['page'] == 0: 
         pass
 
     else:
