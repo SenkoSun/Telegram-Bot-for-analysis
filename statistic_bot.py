@@ -75,6 +75,7 @@ def analiz():
                 devices.setdefault(sms[1][1], dict())
                 devices[sms[1][1]]["check"] = False
                 devices[sms[1][1]]["description"] = " ".join(sms[2])
+                devices[sms[1][1]]["place"] = (sms[1][1].split("_")[0] if sms[1][1].split("_")[0] not in ["local", "inet"] else sms[1][1].split("_")[1])
                 
                 if sms[0][1] not in devices[sms[1][1]].setdefault("problems", []): 
                     devices[sms[1][1]]["problems"].append(sms[0][1])
@@ -226,13 +227,12 @@ async def stats(message: Message):
             graph.setdefault(months[problems[i]['date'].split('.')[1]], 0)
             graph[months[problems[i]['date'].split('.')[1]]] += 1
     
+    plt.figure(figsize=(8, 4))
+    places = [p['place'] for p in problems.values()]
+    place_counts = {place: places.count(place) for place in set(places)}
+    plt.bar(place_counts.keys(), place_counts.values())
+    plt.title('Распределение проблем по местам')
     
-    plt.figure(figsize=(10, 6))
-    plt.bar(sorted(list(graph.keys()), key=lambda x: list(months.values()).index(x)), list(graph.values()))
-    # plt.xlabel("Месяц года")
-    plt.ylabel("Проблем за месяц")
-    plt.title('График проблем в зависимости от месяца')
-    plt.tight_layout()
     
     # Сохраняем график в буфер (без сохранения на диск)
     buf = io.BytesIO()
@@ -260,12 +260,12 @@ async def all_device(message: Message):
                 graph[months[j.split('.')[1]]] += 1
                 k.append(months[j.split('.')[1]])
     
-    plt.figure(figsize=(10, 6))
-    plt.bar(sorted(list(graph.keys()), key=lambda x: list(months.values()).index(x)), list(graph.values()))
-    # plt.xlabel("Месяц года")
-    plt.ylabel("Количество устройств")
-    plt.title('График устройств с проблемамии в зависимости от месяца')
-    plt.tight_layout()
+
+    plt.figure(figsize=(8, 4))
+    places = [p['place'] for p in devices.values()]
+    place_counts = {place: places.count(place) for place in set(places)}
+    plt.bar(place_counts.keys(), place_counts.values())
+    plt.title('Распределение устройств по местам')
     
     # Сохраняем график в буфер (без сохранения на диск)
     buf = io.BytesIO()
