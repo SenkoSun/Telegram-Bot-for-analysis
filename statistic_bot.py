@@ -16,6 +16,8 @@ import io
 from datetime import datetime, date
 import calendar
 from aiogram import types
+from io import BytesIO
+from fpdf import FPDF
 
 
 file_path = Path(__file__).parent / 'json' / 'result.json' # Поменять на 'test_result.json'
@@ -116,7 +118,14 @@ def send_device(name):
             f'Статистика проблем с устройством за год - {len([i for i in device["problems"] if compare_date(problems[i]["date"], today)[2] == 0])} 🕰️\n'\
             f'Статистика проблем с устройством за месяц - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)[1:]) == 0])} ⏲️\n'\
             f'Статистика проблем с устройством за день - {len([i for i in device["problems"] if sum(compare_date(problems[i]["date"], today)) == 0])} ⏱️\n' \
-            f'Последние проблемы связанных с устройством - {", ".join([i for i in device["problems"] if not problems[i]["check"]][-5:])}'
+            f'Последние проблемы связанных с устройством: \n'
+    col = 0
+    for i in device["problems"]:
+        if not problems[i]["check"]:
+            otvet = otvet + f'{i} - {problems[i]["date"]} \n'
+            col += 1
+        if col >= 5:
+            break
     return otvet
 
 
@@ -139,18 +148,20 @@ def compare_date(date1, date2):
 
 async def set_main_menu(bot: Bot):
     main_menu_commands = [
-        # BotCommand(command='/start',
-        #            description='начальное сообщение 😁'),
-        # BotCommand(command='/help',
-        #            description='список всех команд ❓'),
-        BotCommand(command='/stats',
-                   description='общая статистика проблем за день/месяц/год/ 🧐'),
-        BotCommand(command='/all_device',
-                   description='устройства зарегестрированные за все время 🤝'),
+        BotCommand(command='/start',
+                   description='начальное сообщение 😁'),
+        BotCommand(command='/help',
+                   description='список всех команд ❓'),
+        # BotCommand(command='/stats',
+        #            description='общая статистика проблем за день/месяц/год/ 🧐'),
+        # BotCommand(command='/all_device',
+        #            description='устройства зарегестрированные за все время 🤝'),
         BotCommand(command='/rec_device',
                    description='устройства рекомендованные к рассмотрению 😟'),
         BotCommand(command='/check',
                    description='новые проблемы, которые надо решить 🥺'),
+        BotCommand(command='/predict',
+                   description='предсказание на счет поломки устройства 🌌'),
     ]
 
     await bot.set_my_commands(main_menu_commands)
@@ -195,7 +206,9 @@ async def help(message: Message):
                         '/stats - общая статистика проблем за день/месяц/год/🧐\n'
                         '/all_device - устройства зарегестрированные за все время🤝\n'
                         '/rec_device - устройства рекомендованные к рассмотрению😟\n'
-                        '/check - недавние, не решенные проблемы 🥺')
+                        '/check - недавние, не решенные проблемы 🥺\n'
+                        '/predict - устройства, у которых большой риск к поломке 🌠'
+                        )
     
 
 @dp.message(Command(commands="stats"))
@@ -269,7 +282,7 @@ async def rec_device(message: Message):
     new_user(message.from_user.id)
     
     sms = f'Всего зарегистрированных устройств - {len(devices)} ✅ \n' \
-          f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n' \
+          f'Устройств рекомендованных к рассмотрению - {len([i for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7])} ‼️ \n' \
           f'Устройства с проблемами⬇️'
     
     await message.answer(sms, reply_markup=generator_inline_buttons(3, rec_devices_week = "За неделю", rec_devices_mounth = "За месяц", rec_devices_year = "За пол года", choice_period_device = "Выбрать период"))
@@ -287,7 +300,7 @@ async def check(message: Message):
 @dp.message(Command(commands="predict"))
 async def check(message: Message):
     def risk_compute(device):
-        w1, w2, w3, w4, w5 = 1, 0.7, 0.5, 1, 0.1 # Веса
+        w1, w2, w3, w4, w5 = 2, 0.3, 0.3, 1, 0.1 # Веса
         days_since_last_failure_max = 0
         unsolved_problem_max = 0
         total_failures_max = 0
@@ -302,14 +315,14 @@ async def check(message: Message):
         risk_score += w1 * (len(devices[device]["problems"]) / (total_failures_max)) # частота поломок
         risk_score += w2 * [t[0] + t[1]*30 + t[2]*365 for t in [compare_date(devices[device]["dates_break"][-1], today)]][0] / days_since_last_failure_max # Время последней поломки
         risk_score += w3 * (len(devices[device]["problems"]) / (total_failures_max)) #не исправленные проблемы
-        risk_score += w4 * (1 / (sum(mtbf) / (len(mtbf) + 1) + 1))
-        risk_score += w5 * 100
+        risk_score += w4 * (1 / (sum(mtbf) / (len(mtbf) + 1) + 1)) # время между поломками
+        risk_score += w5 * 100 #Кретичность устройства
         return risk_score
         
     new_user(message.from_user.id)
-    risk_list = sorted([[i, risk_compute(i)] for i in devices], key = lambda x: x[1])[-5:]
+    risk_list = sorted([[i, risk_compute(i)] for i in devices], key = lambda x: x[1])[-10:]
     risk_list = [f"{'✅' if devices[i[0]]['check'] else '❗'}" + str(i[0]) for i in risk_list]
-    await message.answer("Вот список устройств, с самым большим риском на поломку ⬇️", reply_markup=generator_inline_buttons(1, *risk_list))
+    await message.answer("Вот список устройств, с самым большим риском на поломку ⬇️", reply_markup=generator_inline_buttons(2, *risk_list))
 
 
 @dp.message(lambda msg: msg.text and msg.text.isdigit())
@@ -432,7 +445,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     period = F.data.split("_")[2]
 
     if period == "week":
-        devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7]
+        devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0 and date[0] <= 7]
     elif period == "month":
         devices_rec = [f"{'✅' if devices[i]['check'] else '❗'}" + str(i) for i in devices if not devices[i]["check"] and len(devices[i]["problems"]) > average_failures for date in [compare_date(devices[i]["dates_break"][-1], today)] if sum(date[1:]) == 0]
     elif period == "year":
@@ -598,7 +611,7 @@ async def process_date_selection(callback: types.CallbackQuery):
     if select_mode == "start":
         users[callback.from_user.id]['datefirst'] = date
         await callback.message.edit_text(
-            f"Выбрана начальная дата: {users[callback.from_user.id]['datefirst']} 📅\n"\
+            f"Выбрана начальная дата: <b>{users[callback.from_user.id]['datefirst']}</b> 📅\n"\
              "Пожалуйста, выберите конечную дату для формирования отчёта: ",
             reply_markup=generate_calendar(int(year), int(month), "end"),
             parse_mode="HTML"
@@ -613,6 +626,9 @@ async def process_date_selection(callback: types.CallbackQuery):
                 users[callback.from_user.id]['page'] = 0
                 users[callback.from_user.id]['maxpage'] = len(problems_rec) // PAGE_PROBLEM + bool(len(problems_rec) % PAGE_PROBLEM) - 1
                 users[callback.from_user.id]['spisok'] = problems_rec
+                # users[callback.from_user.id]['type_spisok'] = "problem"
+                
+                
                 if (len(problems_rec) == 0):
                     await callback.message.edit_text(f"Рекомендованных проблем в данном периоде не найдено 🚫")
                     users[callback.from_user.id]['datefirst'] = ""
@@ -632,6 +648,7 @@ async def process_date_selection(callback: types.CallbackQuery):
                 users[callback.from_user.id]['page'] = 0
                 users[callback.from_user.id]['maxpage'] = len(devices_rec) // PAGE_DEVICE + bool(len(devices_rec) % PAGE_DEVICE) - 1
                 users[callback.from_user.id]['spisok'] = devices_rec
+                # users[callback.from_user.id]['type_spisok'] = "device"
 
                 if (len(devices_rec) == 0):
                     await callback.message.edit_text(f"Рекомендованных устройств в данном периоде не найдено 🚫")
@@ -640,19 +657,19 @@ async def process_date_selection(callback: types.CallbackQuery):
 
                 await callback.message.edit_text(f"Период выбран: <b>{datefirst} - {date}</b> ✅\n" \
                                                  f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
+                         reply_markup=generator_inline_buttons(2, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')),
                                                 parse_mode="HTML"
                                                 )
         else:
             await callback.message.edit_text(
-            f"Выбрана дата, раньше начальной\n" \
-            f"Пожалуйста используйте корректный период ❌\n"\
-            f"Выбрана начальная дата: {users[callback.from_user.id]['datefirst']} 📅\n" \
-            "Пожалуйста, выберите конечную дату для формирования отчёта: ",
-            reply_markup=generate_calendar(int(year), int(month), "end"),
-            parse_mode="HTML"
-        )
+                f"Выбрана дата <b>{date}</b>, раньше начальной\n" \
+                f"Пожалуйста используйте корректный период ❌\n"\
+                f"Выбрана начальная дата: {users[callback.from_user.id]['datefirst']} 📅\n" \
+                "Пожалуйста, выберите конечную дату для формирования отчёта: ",
+                reply_markup=generate_calendar(int(year), int(month), "end"),
+                parse_mode="HTML"
+            )
 
 @dp.callback_query(F.data.startswith("change_month_"))
 async def change_month(callback: types.CallbackQuery):
@@ -698,7 +715,7 @@ async def choice_correct_month_year(callback: types.CallbackQuery):
             "Выберите нужный месяц: 　　　　　　 　　　　　　　 ",
             reply_markup=builder.as_markup(),
         )
-    
+
 
 #Если ловится не зарегестрированный коллбэкd
 @dp.callback_query()
