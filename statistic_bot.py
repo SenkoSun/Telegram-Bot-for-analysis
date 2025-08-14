@@ -284,6 +284,33 @@ async def check(message: Message):
         
     await message.answer(sms, reply_markup=generator_inline_buttons(3, rec_problems_week = "За неделю", rec_problems_mounth = "За месяц", rec_problems_year = "За пол года", choice_period_problem = "Выбрать период"))
 
+@dp.message(Command(commands="predict"))
+async def check(message: Message):
+    def risk_compute(device):
+        w1, w2, w3, w4, w5 = 1, 0.7, 0.5, 1, 0.1 # Веса
+        days_since_last_failure_max = 0
+        unsolved_problem_max = 0
+        total_failures_max = 0
+        for i in devices:
+            total_failures_max = max(total_failures_max, len(devices[i]["problems"]))
+            unsolved_problem_max = max(unsolved_problem_max, len([j for j in devices[i]["problems"] if not problems[j]["check"]]))
+            days_since_last_failure_max = max(days_since_last_failure_max, (time := compare_date(devices[i]["dates_break"][-1], today))[0] + time[1] * 30 + time[2] * 365)
+        
+        mtbf = [t[0] + t[1]*30 + t[2]*365 for j in range(len(devices[device]["dates_break"]) - 1) for t in [compare_date(devices[device]["dates_break"][j], devices[device]["dates_break"][j + 1])]]
+        
+        risk_score = 0
+        risk_score += w1 * (len(devices[device]["problems"]) / (total_failures_max)) # частота поломок
+        risk_score += w2 * [t[0] + t[1]*30 + t[2]*365 for t in [compare_date(devices[device]["dates_break"][-1], today)]][0] / days_since_last_failure_max # Время последней поломки
+        risk_score += w3 * (len(devices[device]["problems"]) / (total_failures_max)) #не исправленные проблемы
+        risk_score += w4 * (1 / (sum(mtbf) / (len(mtbf) + 1) + 1))
+        risk_score += w5 * 100
+        return risk_score
+        
+    new_user(message.from_user.id)
+    risk_list = sorted([[i, risk_compute(i)] for i in devices], key = lambda x: x[1])[-5:]
+    risk_list = [f"{'✅' if devices[i[0]]['check'] else '❗'}" + str(i[0]) for i in risk_list]
+    await message.answer("Вот список устройств, с самым большим риском на поломку ⬇️", reply_markup=generator_inline_buttons(1, *risk_list))
+
 
 @dp.message(lambda msg: msg.text and msg.text.isdigit())
 async def number_problem(message: Message):
