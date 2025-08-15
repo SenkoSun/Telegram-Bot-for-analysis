@@ -56,6 +56,7 @@ PAGE_PROBLEM = 20
 PAGE_DEVICE = 20
 WITH_PAGE_PROBLEM = 5
 WITH_PAGE_DEVICE = 1
+PAGE_PREDICT = 20
 
 def analiz():
     global actual_date, average_failures, devices, problems
@@ -323,7 +324,7 @@ async def check(message: Message):
         return risk_score
         
     new_user(message.from_user.id)
-    risk_list = sorted([[i, risk_compute(i)] for i in devices], key = lambda x: x[1])[-20:]
+    risk_list = sorted([[i, risk_compute(i)] for i in devices], key = lambda x: x[1])[-PAGE_PREDICT:]
     risk_list = [f"{'✅' if devices[i[0]]['check'] else '❗'}" + str(i[0]) for i in risk_list]
     await message.answer("Вот список устройств, с самым большим риском на поломку ⬇️", reply_markup=generator_inline_buttons(1, *risk_list))
 
