@@ -17,7 +17,6 @@ from datetime import datetime, date
 import calendar
 from aiogram import types
 from io import BytesIO
-from fpdf import FPDF
 
 
 file_path = Path(__file__).parent / 'json' / 'result.json' # Поменять на 'test_result.json'
