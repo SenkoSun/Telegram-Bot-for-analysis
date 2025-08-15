@@ -53,12 +53,12 @@ months = {"01": "Январь", "02": "Февраль", "03": "Март", "04": 
                "09": "Сентябрь", "10": "Октябрь", "11": "Ноябрь", "12": "Декабрь"}
 
 PAGE_PROBLEM = 20
-PAGE_DEVICE = 10
+PAGE_DEVICE = 20
 WITH_PAGE_PROBLEM = 5
 WITH_PAGE_DEVICE = 1
 
 def analiz():
-    global actual_date, average_failures
+    global actual_date, average_failures, devices, problems
     with open(file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
@@ -95,8 +95,9 @@ def analiz():
                 
                 if (sms[1][1] in devices):
                     devices[sms[1][1]]["check"] = True
-    
+        
     average_failures = average_failures // len(devices.keys())
+    devices = {k: devices[k] for k in sorted(devices)}
                 
             
     
@@ -161,8 +162,8 @@ async def set_main_menu(bot: Bot):
         #            description='устройства зарегестрированные за все время 🤝'),
         BotCommand(command='/rec_device',
                    description='устройства рекомендованные к рассмотрению 😟'),
-        BotCommand(command='/check',
-                   description='новые проблемы, которые надо решить 🥺'),
+        # BotCommand(command='/check',
+        #            description='новые проблемы, которые надо решить 🥺'),
         BotCommand(command='/predict',
                    description='предсказание на счет поломки устройства 🌌'),
     ]
@@ -322,7 +323,7 @@ async def check(message: Message):
         return risk_score
         
     new_user(message.from_user.id)
-    risk_list = sorted([[i, risk_compute(i)] for i in devices], key = lambda x: x[1])[-10:]
+    risk_list = sorted([[i, risk_compute(i)] for i in devices], key = lambda x: x[1])[-20:]
     risk_list = [f"{'✅' if devices[i[0]]['check'] else '❗'}" + str(i[0]) for i in risk_list]
     await message.answer("Вот список устройств, с самым большим риском на поломку ⬇️", reply_markup=generator_inline_buttons(1, *risk_list))
 
