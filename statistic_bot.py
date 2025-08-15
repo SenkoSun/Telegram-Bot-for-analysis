@@ -54,6 +54,8 @@ months = {"01": "Январь", "02": "Февраль", "03": "Март", "04": 
 
 PAGE_PROBLEM = 20
 PAGE_DEVICE = 10
+WITH_PAGE_PROBLEM = 5
+WITH_PAGE_DEVICE = 1
 
 def analiz():
     global actual_date, average_failures
@@ -275,7 +277,7 @@ async def all_device(message: Message):
     plt.close()
     buf.close()
         
-    await message.answer(sms, reply_markup=generator_inline_buttons(1, devices_all = "Список устройств 🗒️"))
+    await message.answer(sms, reply_markup=generator_inline_buttons(WITH_PAGE_DEVICE, devices_all = "Список устройств 🗒️"))
 
 @dp.message(Command(commands="rec_device"))
 async def rec_device(message: Message):
@@ -355,7 +357,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     users[callback.from_user.id]['spisok'] = day_problems
     
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                         reply_markup=generator_inline_buttons(WITH_PAGE_PROBLEM, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
     
 @dp.callback_query(F.data == 'problems_mounth')
@@ -373,7 +375,7 @@ async def process_button_mounth_problem(callback: CallbackQuery):
     users[callback.from_user.id]['spisok'] = mounth_problems
     
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                         reply_markup=generator_inline_buttons(WITH_PAGE_PROBLEM, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
 @dp.callback_query(F.data == 'problems_year')
@@ -391,7 +393,7 @@ async def process_button_year_problem(callback: CallbackQuery):
     users[callback.from_user.id]['spisok'] = year_problems
     
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                         reply_markup=generator_inline_buttons(WITH_PAGE_PROBLEM, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
 @dp.callback_query(F.data == 'problems_all')
@@ -409,7 +411,7 @@ async def process_button_year_problem(callback: CallbackQuery):
     users[callback.from_user.id]['spisok'] = all_problems
     
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                         reply_markup=generator_inline_buttons(WITH_PAGE_PROBLEM, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
 
@@ -435,7 +437,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     users[callback.from_user.id]['spisok'] = problems_rec
     
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                         reply_markup=generator_inline_buttons(WITH_PAGE_PROBLEM, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')))
 
 
@@ -461,7 +463,7 @@ async def process_button_day_problem(callback: CallbackQuery):
     users[callback.from_user.id]['spisok'] = devices_rec
     
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(1, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
+                         reply_markup=generator_inline_buttons(WITH_PAGE_DEVICE, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
 
 
@@ -495,13 +497,13 @@ async def process_button_day_problem(callback: CallbackQuery):
     users[callback.from_user.id]['spisok'] = devices_all
     
     await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(1, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
+                         reply_markup=generator_inline_buttons(WITH_PAGE_DEVICE, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')))
 
 @dp.callback_query(F.data == 'forward')
 async def process_button_forward_press(callback: CallbackQuery):
     elements_in_page = (PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else PAGE_DEVICE)
-    width = 5 if users[callback.from_user.id]['type_spisok'] == "problem" else 1
+    width = WITH_PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else WITH_PAGE_DEVICE
     if users[callback.from_user.id]['page'] < users[callback.from_user.id]['maxpage'] - 1:
         users[callback.from_user.id]['page'] += 1
         await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
@@ -523,7 +525,7 @@ async def process_button_forward_press(callback: CallbackQuery):
 @dp.callback_query(F.data == 'backward')
 async def process_button_backward_press(callback: CallbackQuery):
     elements_in_page = (PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else PAGE_DEVICE)
-    width = 5 if users[callback.from_user.id]['type_spisok'] == "problem" else 1
+    width = WITH_PAGE_PROBLEM if users[callback.from_user.id]['type_spisok'] == "problem" else WITH_PAGE_DEVICE
     if users[callback.from_user.id]['page'] > 1:
         users[callback.from_user.id]['page'] -= 1
         await callback.message.edit_text(f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
@@ -637,7 +639,7 @@ async def process_date_selection(callback: types.CallbackQuery):
 
                 await callback.message.edit_text(f"Период выбран: <b>{datefirst} - {date}</b> ✅\n" \
                                                  f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(5, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
+                         reply_markup=generator_inline_buttons(WITH_PAGE_PROBLEM, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_PROBLEM:users[callback.from_user.id]['page'] * PAGE_PROBLEM + PAGE_PROBLEM],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_PROBLEM else '')),
                                                 parse_mode="HTML"
                                                 )
@@ -658,7 +660,7 @@ async def process_date_selection(callback: types.CallbackQuery):
 
                 await callback.message.edit_text(f"Период выбран: <b>{datefirst} - {date}</b> ✅\n" \
                                                  f"Страница: {users[callback.from_user.id]['page'] + 1}/{users[callback.from_user.id]['maxpage'] + 1}",
-                         reply_markup=generator_inline_buttons(1, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
+                         reply_markup=generator_inline_buttons(WITH_PAGE_DEVICE, *users[callback.from_user.id]['spisok'][users[callback.from_user.id]['page'] * PAGE_DEVICE:users[callback.from_user.id]['page'] * PAGE_DEVICE + PAGE_DEVICE],
                                                 last_btn1=('forward - >>' if len(users[callback.from_user.id]['spisok']) > PAGE_DEVICE else '')),
                                                 parse_mode="HTML"
                                                 )
