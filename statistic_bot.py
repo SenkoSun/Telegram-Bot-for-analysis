@@ -326,6 +326,16 @@ async def check(message: Message):
     new_user(message.from_user.id)
     risk_list = sorted([[i, risk_compute(i)] for i in devices], key = lambda x: x[1])[-PAGE_PREDICT:]
     risk_list = [f"{'✅' if devices[i[0]]['check'] else '❗'}" + str(i[0]) for i in risk_list]
+    
+    if (len(risk_list) == 0):
+        await message.answer(f"Устройств не найдено 🚫")
+        return
+    
+    users[message.from_user.id]['page'] = 0
+    users[message.from_user.id]['type_spisok'] = "device"
+    users[message.from_user.id]['maxpage'] = len(risk_list) // PAGE_PREDICT + bool(len(risk_list) % PAGE_PREDICT) - 1
+    users[message.from_user.id]['spisok'] = risk_list
+    
     await message.answer("Вот список устройств, с самым большим риском на поломку ⬇️", reply_markup=generator_inline_buttons(1, *risk_list))
 
 
