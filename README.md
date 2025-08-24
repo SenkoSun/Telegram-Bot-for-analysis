@@ -29,6 +29,4 @@ Advantages
 ✔ User-friendly – Works entirely in Telegram with simple commands.
 ✔ Custom reports – Filter data and export insights effortlessly.
 
-Tech Stack: Python, aiogram, matplotlib, fpdf, json.
-
 Built for companies using Zabbix to simplify infrastructure monitoring and maintenance.
